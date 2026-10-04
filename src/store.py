@@ -421,6 +421,17 @@ def get_briefing(time_range_days: int = 30) -> dict | None:
     return {"summary": item.get("summary", ""), "items": item.get("items", [])}
 
 
+def compute_briefing(time_range_days: int = 30) -> dict:
+    """Public: build the briefing from current state (used by the cold path)."""
+    return _compute_briefing(time_range_days)
+
+
+def save_briefing(briefing: dict) -> dict:
+    """Write BRIEFING#latest. Owned by the cold path (daily scan / onboarding)."""
+    item = {"entity": "BRIEFING", **briefing}
+    return _put(db.sk_briefing(), item)
+
+
 # --- mutations ------------------------------------------------------------------
 
 
