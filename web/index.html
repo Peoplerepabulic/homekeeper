@@ -146,7 +146,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 "use strict";
 /* ================= config ================= */
 var MCP_URL  = "https://ikwwry36o6eftmfibyzymv5thy0kplnb.lambda-url.us-east-1.on.aws/mcp";
-var CHAT_URL = ""; // set after homekeeper-chat Lambda deploys; empty = free-ask disabled
+var CHAT_URL = "https://g3smvyukhw25n2fauqdcx3pq7a0nmjxv.lambda-url.us-east-1.on.aws/"; // homekeeper-chat Lambda
 
 /* ================= tiny MCP client (browser-native, Streamable HTTP) ================= */
 var _mid = 1, _inited = false;
@@ -329,6 +329,7 @@ function qrCard(data, token, ms){
   return {html:h, token:token};
 }
 function fieldsCard(f, s3key){
+  var CATS = [["bathroom_exhaust_fan","Bathroom Exhaust Fan"],["carbon_monoxide_alarm","Carbon Monoxide Alarm"],["central_ac","Central Air Conditioner"],["chimney_fireplace","Chimney / Fireplace"],["clothes_dryer","Clothes Dryer"],["clothes_washer","Washing Machine"],["dehumidifier","Dehumidifier"],["dishwasher","Dishwasher"],["doorbell","Video Doorbell"],["dryer_vent","Dryer Vent"],["furnace","Furnace"],["garage_door_opener","Garage Door Opener"],["garbage_disposal","Garbage Disposal"],["humidifier","Whole-Home Humidifier"],["hvac","HVAC System"],["lawn_sprinkler","Lawn Sprinkler System"],["microwave","Microwave"],["oven_range","Oven / Range"],["range_hood","Range Hood"],["refrigerator","Refrigerator"],["smoke_alarm","Smoke Alarm"],["sump_pump","Sump Pump"],["water_heater","Water Heater"],["water_purifier","Water Purifier"],["water_softener","Water Softener"]];
   function row(label, fv, warn){
     var v = (fv&&fv.value)||"—", c=(fv&&fv.confidence!=null)?fv.confidence:0;
     var low = c<0.8;
@@ -341,8 +342,13 @@ function fieldsCard(f, s3key){
   h += row("型号",(f.model||{}));
   h += row("序列号",(f.serial_number||{}));
   h += row("生产日期",(f.manufacture_date||{}));
-  if(f.suggested_category)
-    h += '<div class="krow"><span class="k">建议分类</span><span class="v">'+esc(f.suggested_category)+'</span></div>';
+  var sug = f.suggested_category||"refrigerator";
+  h += '<div class="krow"><span class="k">设备分类</span><span class="v"><select id="catPick" style="background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:14px;max-width:220px">';
+  CATS.forEach(function(c){
+    h += '<option value="'+c[0]+'"'+(c[0]===sug?' selected':"")+'>'+esc(c[1])+'</option>';
+  });
+  h += '</select></span></div>';
+  h += '<div class="note">AI 建议分类为“'+esc(sug)+'”，如不对请手动更正。</div>';
   h += '<div class="btnrow"><button class="btn" id="confirmAdd">✅ 确认添加</button>'
     + '<button class="btn ghost" id="cancelAdd">取消</button></div>';
   return {html:h, fields:f};
@@ -508,9 +514,11 @@ function extractAndConfirm(cardEl, s3key, token){
     });
     document.getElementById("confirmAdd").addEventListener("click", function(){
       var v = function(o){ return (o&&o.value)||null; };
+      var catEl = document.getElementById("catPick");
+      var category = (catEl && catEl.value) || f.suggested_category || "refrigerator";
       thinking();
       callTool("add_appliance", {
-        category: f.suggested_category||"refrigerator",
+        category: category,
         brand: v(f.brand), model: v(f.model)
       }).then(function(r){
         unthinking();
@@ -534,11 +542,11 @@ function freeAsk(text){
     return;
   }
   thinking();
-  history.push({role:"user", content:text});
+  history.push({role:"user", text:text});
   chatPost({action:"chat", message:text, history:history.slice(-10)}).then(function(d){
     unthinking();
     if(d.error){ addError(d.error); return; }
-    history.push({role:"assistant", content:d.reply||""});
+    history.push({role:"assistant", text:d.reply||""});
     addAlexa(d.reply||"（无回复）", true);
     (d.tool_calls||[]).forEach(function(tc){
       if(!tc.result) return;
