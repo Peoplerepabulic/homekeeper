@@ -73,7 +73,7 @@
   // Phase 2: presign endpoint is live (homekeeper-presign Lambda).
   //   GET ?token=<upload token>  ->  { "upload_url": "<s3 presigned PUT url>",
   //                                    "s3_key": "uploads/<token>.jpg" }
-  var PRESIGN_ENDPOINT = "https://4y52ctpkwpgzyf73545z4tw4li0ahghj.lambda-url.us-east-1.on.aws/";
+  var PRESIGN_ENDPOINT = "https://7xxrr1lk9e.execute-api.us-east-1.amazonaws.com/presign";
 
   function $(id) { return document.getElementById(id); }
   var statusEl = $("status"), barWrap = $("progress"), bar = $("bar");
