@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HomeKeeper — Add appliance by photo</title>
+<style>
+  :root { --bg: #f7f5ef; --card: #ffffff; --ink: #23272e; --muted: #6b7280;
+          --accent: #1f6feb; --ok: #137333; --err: #b3261e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 48px; }
+  .card { background: var(--card); border-radius: 16px; padding: 24px;
+          box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p.hint { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 20px; }
+  .drop { border: 2px dashed #c9d2e0; border-radius: 12px; padding: 28px 16px;
+          text-align: center; color: var(--muted); margin-bottom: 16px; }
+  .drop img.preview { max-width: 100%; max-height: 220px; border-radius: 8px; }
+  input[type=file] { display: none; }
+  .btn { display: block; width: 100%; padding: 15px; border: 0; border-radius: 12px;
+         font-size: 17px; font-weight: 600; cursor: pointer; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:disabled { background: #9db9e8; cursor: default; }
+  .btn.ghost { background: #eef1f6; color: var(--ink); margin-top: 10px; }
+  .progress { height: 8px; background: #e5e9f0; border-radius: 4px;
+              overflow: hidden; margin: 16px 0 8px; display: none; }
+  .progress > div { height: 100%; width: 0; background: var(--accent);
+                    transition: width .2s; }
+  .status { font-size: 14px; min-height: 20px; margin-top: 8px; }
+  .status.ok { color: var(--ok); } .status.err { color: var(--err); }
+  .success { text-align: center; padding: 12px 0 4px; display: none; }
+  .success .tick { font-size: 52px; }
+  .token-note { font-size: 12px; color: var(--muted); margin-top: 18px;
+                word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card" id="main">
+    <h1>Add your appliance</h1>
+    <p class="hint">Take a clear photo of the <strong>nameplate / rating label</strong>
+      (usually inside the door or on the back). HomeKeeper will read the brand
+      and model and build your appliance profile in about a minute.</p>
+
+    <div class="drop" id="drop">
+      <div id="dropPrompt">📷<br>Tap below to take or choose a photo</div>
+      <img class="preview" id="preview" alt="" style="display:none">
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" capture="environment">
+
+    <button class="btn primary" id="chooseBtn">Choose photo</button>
+    <button class="btn primary" id="uploadBtn" disabled style="margin-top:10px">Upload</button>
+
+    <div class="progress" id="progress"><div id="bar"></div></div>
+    <div class="status" id="status"></div>
+
+    <div class="success" id="success">
+      <div class="tick">✅</div>
+      <p><strong>Photo uploaded!</strong><br>
+      Your appliance profile will be ready in about a minute.<br>
+      Just ask Alexa: <em>"Did you add my appliance?"</em></p>
+    </div>
+
+    <div class="token-note" id="tokenNote"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Phase 2: presign endpoint is live (homekeeper-presign Lambda).
+  //   GET ?token=<upload token>  ->  { "upload_url": "<s3 presigned PUT url>",
+  //                                    "s3_key": "uploads/<token>.jpg" }
+  var PRESIGN_ENDPOINT = "https://7xxrr1lk9e.execute-api.us-east-1.amazonaws.com/presign";
+
+  function $(id) { return document.getElementById(id); }
+  var statusEl = $("status"), barWrap = $("progress"), bar = $("bar");
+
+  function setStatus(msg, cls) {
+    statusEl.textContent = msg;
+    statusEl.className = "status" + (cls ? " " + cls : "");
+  }
+
+  // 1. one-time token from ?token=
+  var token = new URLSearchParams(window.location.search).get("token");
+  if (!token) {
+    setStatus("This link is invalid or expired. Ask Alexa for a new photo-upload link.", "err");
+    $("chooseBtn").disabled = true;
+    return;
+  }
+  $("tokenNote").textContent = "Secure upload link — expires automatically.";
+
+  var file = null;
+  var fileInput = $("fileInput");
+
+  $("chooseBtn").addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () {
+    if (!fileInput.files.length) return;
+    file = fileInput.files[0];
+    var url = URL.createObjectURL(file);
+    $("preview").src = url;
+    $("preview").style.display = "block";
+    $("dropPrompt").style.display = "none";
+    $("uploadBtn").disabled = false;
+    setStatus("");
+  });
+
+  $("uploadBtn").addEventListener("click", function () {
+    if (!file) return;
+    if (!PRESIGN_ENDPOINT) {
+      // Graceful degradation until the Phase 2 backend exists.
+      setStatus("Upload service is not configured yet (coming in Phase 2). "
+        + "Your photo was not sent anywhere.", "err");
+      return;
+    }
+    setStatus("Getting secure upload URL…");
+    $("uploadBtn").disabled = true;
+    barWrap.style.display = "block";
+
+    fetch(PRESIGN_ENDPOINT + "?token=" + encodeURIComponent(token))
+      .then(function (r) {
+        if (!r.ok) throw new Error("presign failed (" + r.status + ")");
+        return r.json();
+      })
+      .then(function (p) { return putToS3(p.upload_url, file); })
+      .then(function () {
+        bar.style.width = "100%";
+        $("main").querySelectorAll("button, .drop").forEach(function (el) {
+          el.style.display = "none";
+        });
+        $("success").style.display = "block";
+        setStatus("");
+      })
+      .catch(function (e) {
+        setStatus("Upload failed: " + e.message + " Please try again.", "err");
+        $("uploadBtn").disabled = false;
+      });
+  });
+
+  // PUT with progress (fetch has no upload-progress events, so XHR it is).
+  function putToS3(url, file) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("PUT", url, true);
+      xhr.setRequestHeader("Content-Type", file.type || "image/jpeg");
+      xhr.upload.addEventListener("progress", function (e) {
+        if (e.lengthComputable) {
+          var pct = Math.round(e.loaded / e.total * 100);
+          bar.style.width = pct + "%";
+          setStatus("Uploading… " + pct + "%");
+        }
+      });
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error("S3 returned " + xhr.status));
+      };
+      xhr.onerror = function () { reject(new Error("network error")); };
+      xhr.send(file);
+    });
+  }
+})();
+</script>
+</body>
+</html>
