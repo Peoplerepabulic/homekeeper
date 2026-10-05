@@ -8,6 +8,56 @@ the default 60 s read timeout flaky; with 300 s the calls succeed in ~2 s).
 
 ---
 
+# AWS Deploy III — daily_scan Lambda + EventBridge Scheduler (2026-10-04)
+
+AgentCore fallback (parent decision): `daily_scan` is 100% deterministic
+(recompute urgency + CPSC match + rewrite briefing, no LLM), so it runs as
+a plain Lambda on a Scheduler cron instead of an AgentCore Runtime agent.
+AgentCore/Strands is reserved for Task 1 photo-onboarding when Bedrock
+vision is actually wired (Phase 3).
+
+## What was created
+
+| Resource | Name / value |
+|---|---|
+| Lambda function | `homekeeper-daily-scan` — python3.12, 1024 MB, 300 s timeout (`deploy/daily_scan_lambda.py`) |
+| IAM role | `homekeeper-dailyscan-role` — `AWSLambdaBasicExecutionRole` + inline: `dynamodb:GetItem/PutItem/Query` on `homekeeper` only |
+| Env vars | `HOMEKEEPER_TABLE=homekeeper`, `DEMO_CLOCK=2026-10-04` |
+| EventBridge Scheduler | `homekeeper-daily-scan` — `cron(0 6 * * ? *)` in `America/Chicago`, `FlexibleTimeWindow OFF`, state `ENABLED` |
+| Scheduler role | `homekeeper-scheduler-role` — trusts `scheduler.amazonaws.com`, `lambda:InvokeFunction` on the daily-scan function only |
+
+## How it works
+
+Handler reuses `agent/home_analyst.py::daily_scan` unchanged (injectable
+design — the Lambda only supplies a `cpsc_fn`). The one Lambda-specific
+piece is `_cached_cpsc_fn`: the full CPSC dump is ~28 MB, so per
+(brand, model) match results are cached as `META#cpsc_match#<brand>#<model>`
+rows (20 h TTL) instead of refetching on every invocation. Within one
+run, `home_analyst`'s in-process 24 h cache already dedups the download
+across the 8 appliances.
+
+Zip: `requests` vendored via `pip install --target` (boto3 comes with the
+runtime); repo layout preserved (`agent/`, `src/` + `catalog.json`);
+handler `daily_scan_lambda.handler`.
+
+## Verified 2026-10-04
+
+Manual `aws lambda invoke` → 200:
+`{"date": "2026-10-04", "tasks_updated": 0, "alerts_created": 0, "briefing_items": 5}` —
+BRIEFING#latest recomputed as exactly the demo 5-item briefing
+(overdue/high/due_soon/due_soon/due_soon), 6 `META#cpsc_match#…` cache rows
+written, `EVENT#…/daily_scan` logged. `tasks_updated=0` / `alerts_created=0`
+are correct: seed data is already current and the demo recall alert exists
+(dedup working).
+
+## Gotcha hit (also in FRICTION_LOG.md)
+
+8. **boto3 rejects Python `float`.** Storing `time.time()` in the cache row
+   raised `TypeError: Float types are not supported. Use Decimal types
+   instead.` Fix: `int(time.time())` epoch seconds.
+
+---
+
 # AWS Deploy II — S3/CloudFront web + presign Lambda (2026-10-04)
 
 ## What was created
