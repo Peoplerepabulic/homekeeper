@@ -126,15 +126,15 @@
   <div id="simlabel"><span class="dot"></span><span>Simulated Alexa+ experience &middot; Real MCP backend on AWS &middot; Demo household</span></div>
   <div id="thread" aria-live="polite"></div>
   <div id="demobar">
-    <button class="btn" data-demo="briefing">☀️ 早安简报</button>
-    <button class="btn" data-demo="triage">🔧 故障分诊</button>
-    <button class="btn" data-demo="photo">📷 拍照建档</button>
+    <button class="btn" data-demo="briefing">☀️ Morning Briefing</button>
+    <button class="btn" data-demo="triage">🔧 Issue Triage</button>
+    <button class="btn" data-demo="photo">📷 Photo Onboarding</button>
   </div>
   <div id="inputbar">
-    <button id="micBtn" title="语音输入" disabled>🎤</button>
-    <input id="textInput" placeholder="问 HomeKeeper……（或点麦克风说话）" autocomplete="off">
-    <button id="voiceBtn" title="Alexa 语音播报开关">🔊</button>
-    <button id="sendBtn" title="发送">➤</button>
+    <button id="micBtn" title="Voice input" disabled>🎤</button>
+    <input id="textInput" placeholder="Ask HomeKeeper… (or tap the mic)" autocomplete="off">
+    <button id="voiceBtn" title="Alexa voice output toggle">🔊</button>
+    <button id="sendBtn" title="Send">➤</button>
   </div>
   <div id="foot">HomeKeeper &middot; Build, Ship, Shape: Amazon Developer Hackathon &middot;
     <a href="upload.html">photo upload page</a></div>
@@ -219,7 +219,7 @@ function addError(text){
 }
 function thinking(){
   var d=document.createElement("div"); d.className="msg thinking"; d.id="thinking";
-  d.innerHTML='Alexa 正在思考<span class="dots"></span>';
+  d.innerHTML='Alexa is thinking<span class="dots"></span>';
   threadEl.appendChild(d); scrollDown(); setBar("thinking");
 }
 function unthinking(){
@@ -235,45 +235,45 @@ function via(ms, tool, source){
   return '<div class="via">via '+esc(source)+' · <b>'+esc(tool)+'</b>'+t+'</div>';
 }
 /* urgency / date helpers */
-var URG_CN = {overdue:"已逾期", due_soon:"即将到期", high:"紧急", ok:"正常"};
+var URG = {overdue:"Overdue", due_soon:"Due soon", high:"Urgent", ok:"OK"};
 var TYPE_ICON = {maintenance:"🔧", warranty:"🛡️", recall:"⚠️"};
 function relDate(iso){
   if(!iso) return "—";
   var demo = new Date("2026-10-04T12:00:00");
   var d = new Date(iso+"T12:00:00");
   var days = Math.round((d-demo)/86400000);
-  if(days===0) return "今天";
-  if(days>0) return days+"天后 ("+iso+")";
-  return Math.abs(days)+"天前 ("+iso+")";
+  if(days===0) return "Today";
+  if(days>0) return "in "+days+"d ("+iso+")";
+  return Math.abs(days)+"d ago ("+iso+")";
 }
 
 /* ================= cards ================= */
 function briefingCard(data, ms, source){
   var items = data.items||[];
-  var h = '<h3>🏠 家庭简报</h3>'+via(ms,"get_home_briefing",source);
+  var h = '<h3>🏠 Home Briefing</h3>'+via(ms,"get_home_briefing",source);
   h += '<div class="note">'+esc(data.summary||"")+'</div>';
   items.forEach(function(it, i){
     var urg = it.urgency||"ok";
     h += '<div class="brow tap" data-appl="'+esc(it.appliance||"")+'">'
       + '<span class="ic">'+(TYPE_ICON[it.type]||"📌")+'</span>'
       + '<span class="tx"><span class="t1">'+esc(it.appliance||"")+' — '+esc(it.task||"")+'</span>'
-      + '<span class="t2">'+esc(it.detail||"")+'<br>到期：'+esc(relDate(it.due))+'</span></span>'
-      + '<span class="pill '+urg+'">'+esc(URG_CN[urg]||urg)+'</span></div>';
+      + '<span class="t2">'+esc(it.detail||"")+'<br>Due: '+esc(relDate(it.due))+'</span></span>'
+      + '<span class="pill '+urg+'">'+esc(URG[urg]||urg)+'</span></div>';
   });
-  h += '<div class="note" style="margin-top:10px">💡 点任意一行查看设备详情</div>';
+  h += '<div class="note" style="margin-top:10px">💡 Tap any row for appliance details</div>';
   return h;
 }
 function detailCard(data, ms, source){
   var a = data.appliance||{}, w = data.warranty||{};
   var wcls = w.status==="active"?"good":(w.status==="expired"?"bad":"warn");
-  var wtxt = w.status==="active" ? ("保修中，至 "+w.warranty_end)
-           : (w.status==="expired" ? "已过保" : "保修状态未知");
-  var h = '<h3>📋 ' + esc(a.label||"设备详情") + '</h3>' + via(ms,"get_appliance",source);
-  h += '<div class="krow"><span class="k">品牌 / 型号</span><span class="v">'
+  var wtxt = w.status==="active" ? ("Under warranty until "+w.warranty_end)
+           : (w.status==="expired" ? "Expired" : "Warranty unknown");
+  var h = '<h3>📋 ' + esc(a.label||"Appliance Details") + '</h3>' + via(ms,"get_appliance",source);
+  h += '<div class="krow"><span class="k">Brand / Model</span><span class="v">'
      + esc(a.brand||"—")+" / "+esc(a.model||"—")+'</span></div>';
-  h += '<div class="krow"><span class="k">位置</span><span class="v">'+esc(a.room||"—")+'</span></div>';
-  h += '<div class="krow"><span class="k">已使用</span><span class="v">'+esc(a.device_age||data.device_age||"—")+'</span></div>';
-  h += '<div class="krow"><span class="k">保修</span><span class="v '+wcls+'">'+esc(wtxt)+'</span></div>';
+  h += '<div class="krow"><span class="k">Location</span><span class="v">'+esc(a.room||"—")+'</span></div>';
+  h += '<div class="krow"><span class="k">In use</span><span class="v">'+esc(a.device_age||data.device_age||"—")+'</span></div>';
+  h += '<div class="krow"><span class="k">Warranty</span><span class="v '+wcls+'">'+esc(wtxt)+'</span></div>';
   (data.maintenance_history||[]).slice(0,4).forEach(function(t){
     h += '<div class="krow"><span class="k">'+esc(t.task||"")+'</span><span class="v">'
        + esc(relDate(t.next_due))+'</span></div>';
@@ -286,45 +286,45 @@ function detailCard(data, ms, source){
 function triageCard(data, ms, source){
   var w = data.warranty||{};
   var wcls = w.status==="active"?"good":(w.status==="expired"?"bad":"warn");
-  var wtxt = w.status==="active" ? ("保修中，至 "+w.warranty_end)
-           : (w.status==="expired" ? "已过保" : "保修状态未知");
-  var h = '<h3>🔧 故障分诊</h3>'+via(ms,"report_issue",source);
-  h += '<div class="krow"><span class="k">设备</span><span class="v">'+esc(data.appliance||"")+'</span></div>';
-  h += '<div class="krow"><span class="k">已使用</span><span class="v">'+esc(data.device_age||"—")+'</span></div>';
-  h += '<div class="krow"><span class="k">保修</span><span class="v '+wcls+'">'+esc(wtxt)+'</span></div>';
-  h += '<div class="krow"><span class="k">上次保养</span><span class="v">'
-     + esc(data.last_maintenance ? (data.last_maintenance.task+" · "+(data.last_maintenance.date||data.last_maintenance.last_done||"")) : "无记录")
+  var wtxt = w.status==="active" ? ("Under warranty until "+w.warranty_end)
+           : (w.status==="expired" ? "Expired" : "Warranty unknown");
+  var h = '<h3>🔧 Issue Triage</h3>'+via(ms,"report_issue",source);
+  h += '<div class="krow"><span class="k">Appliance</span><span class="v">'+esc(data.appliance||"")+'</span></div>';
+  h += '<div class="krow"><span class="k">In use</span><span class="v">'+esc(data.device_age||"—")+'</span></div>';
+  h += '<div class="krow"><span class="k">Warranty</span><span class="v '+wcls+'">'+esc(wtxt)+'</span></div>';
+  h += '<div class="krow"><span class="k">Last maintenance</span><span class="v">'
+     + esc(data.last_maintenance ? (data.last_maintenance.task+" · "+(data.last_maintenance.date||data.last_maintenance.last_done||"")) : "No record")
      + '</span></div>';
-  h += '<div class="krow"><span class="k">未完成任务</span><span class="v">'+(data.open_tasks||[]).length+'</span></div>';
+  h += '<div class="krow"><span class="k">Open tasks</span><span class="v">'+(data.open_tasks||[]).length+'</span></div>';
   if(data.triage && data.triage.note)
-    h += '<div class="note">📖 知识库：'+esc(data.triage.note)+'</div>';
+    h += '<div class="note">📖 Knowledge base: '+esc(data.triage.note)+'</div>';
   var rec, rcls="";
   var hasRecall = (data.alerts||[]).some(function(a){return a.kind==="recall"||/recall/i.test(a.title||"");});
-  if(hasRecall) rec = "⚠️ 该设备有未读召回告警，建议优先查看官方召回信息。";
-  else if(w.status==="active") rec = "✅ 在保修期内，建议联系厂商售后走保修流程。";
-  else rec = "👨‍🔧 已过保，建议预约专业维修人员上门检查。";
-  h += '<div class="rec">'+esc(rec)+'<br><span style="font-size:12px;color:var(--muted)">规则建议，仅供参考</span></div>';
+  if(hasRecall) rec = "⚠️ This appliance has an unread recall alert — check the official recall notice first.";
+  else if(w.status==="active") rec = "✅ Still under warranty — contact the manufacturer's support for a warranty claim.";
+  else rec = "👨‍🔧 Out of warranty — book a professional technician for an inspection.";
+  h += '<div class="rec">'+esc(rec)+'<br><span style="font-size:12px;color:var(--muted)">Rule-based suggestion, for reference only</span></div>';
   return h;
 }
 function reorderCard(data, ms, source){
-  var h = '<h3>🛒 耗材购买</h3>'+via(ms,"get_reorder_options",source);
+  var h = '<h3>🛒 Reorder Supplies</h3>'+via(ms,"get_reorder_options",source);
   h += '<div class="note">'+esc(data.summary||"")+'</div>';
   (data.options||[]).forEach(function(o){
     h += '<div class="brow"><span class="ic">📦</span><span class="tx">'
       + '<span class="t1">'+esc(o.consumable||"")+'</span>'
       + '<span class="t2">'+esc(o.spec||"")+'</span></span></div>';
     if(o.url) h += '<div class="btnrow"><a class="btn" style="text-decoration:none;text-align:center" '
-      + 'href="'+esc(o.url)+'" target="_blank" rel="noopener">在 Amazon 购买 ↗</a></div>';
+      + 'href="'+esc(o.url)+'" target="_blank" rel="noopener">Buy on Amazon ↗</a></div>';
   });
   return h;
 }
 function qrCard(data, token, ms){
-  var h = '<h3>📷 拍照建档</h3>'+via(ms,"start_photo_onboarding");
+  var h = '<h3>📷 Photo Onboarding</h3>'+via(ms,"start_photo_onboarding");
   h += '<div class="qrwrap"><div class="qr" id="qrbox"></div>'
-    + '<div style="font-size:14px">用手机扫码，拍摄设备铭牌照片</div>'
+    + '<div style="font-size:14px">Scan with your phone and photograph the appliance nameplate</div>'
     + '<div class="url">'+esc(data.upload_url)+'</div>'
-    + '<div id="upstatus">⏳ 等待上传…（链接 <span id="upcount">15:00</span> 后过期）</div>'
-    + '<div class="btnrow" style="width:100%"><button class="btn ghost" id="alreadyUp">我已上传，开始识别</button></div>'
+    + '<div id="upstatus">⏳ Waiting for upload… (link expires in <span id="upcount">15:00</span>)</div>'
+    + '<div class="btnrow" style="width:100%"><button class="btn ghost" id="alreadyUp">I\'ve uploaded — start recognition</button></div>'
     + '</div>';
   return {html:h, token:token};
 }
@@ -337,28 +337,28 @@ function fieldsCard(f, s3key){
       + '<span class="v '+(low?"warn":"")+'">'+esc(v)
       + ' <span style="font-weight:400;color:var(--dim);font-size:12px">'+Math.round(c*100)+'%'+(low?" ⚠️":"")+'</span></span></div>';
   }
-  var h = '<h3>🔍 铭牌识别结果</h3><div class="via">via Bedrock Claude vision · extract_nameplate</div>';
-  h += row("品牌",(f.brand||{}));
-  h += row("型号",(f.model||{}));
-  h += row("序列号",(f.serial_number||{}));
-  h += row("生产日期",(f.manufacture_date||{}));
+  var h = '<h3>🔍 Nameplate Scan Result</h3><div class="via">via Bedrock Claude vision · extract_nameplate</div>';
+  h += row("Brand",(f.brand||{}));
+  h += row("Model",(f.model||{}));
+  h += row("Serial #",(f.serial_number||{}));
+  h += row("Mfg date",(f.manufacture_date||{}));
   var sug = f.suggested_category||"refrigerator";
-  h += '<div class="krow"><span class="k">设备分类</span><span class="v"><select id="catPick" style="background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:14px;max-width:220px">';
+  h += '<div class="krow"><span class="k">Category</span><span class="v"><select id="catPick" style="background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:14px;max-width:220px">';
   CATS.forEach(function(c){
     h += '<option value="'+c[0]+'"'+(c[0]===sug?' selected':"")+'>'+esc(c[1])+'</option>';
   });
   h += '</select></span></div>';
-  h += '<div class="note">AI 建议分类为“'+esc(sug)+'”，如不对请手动更正。</div>';
-  h += '<div class="btnrow"><button class="btn" id="confirmAdd">✅ 确认添加</button>'
-    + '<button class="btn ghost" id="cancelAdd">取消</button></div>';
+  h += '<div class="note">AI suggests category "'+esc(sug)+'" — correct it if wrong.</div>';
+  h += '<div class="btnrow"><button class="btn" id="confirmAdd">✅ Confirm & Add</button>'
+    + '<button class="btn ghost" id="cancelAdd">Cancel</button></div>';
   return {html:h, fields:f};
 }
 function addedCard(data, ms, source){
-  var h = '<h3>🎉 已添加</h3>'+via(ms,"add_appliance",source);
+  var h = '<h3>🎉 Added</h3>'+via(ms,"add_appliance",source);
   h += '<div class="note">'+esc(data.summary||"")+'</div>';
   if(data.warranty_end)
-    h += '<div class="krow"><span class="k">保修至</span><span class="v good">'+esc(data.warranty_end)+'</span></div>';
-  h += '<div class="btnrow"><button class="btn" id="refreshBrief">查看更新后的简报</button></div>';
+    h += '<div class="krow"><span class="k">Warranty until</span><span class="v good">'+esc(data.warranty_end)+'</span></div>';
+  h += '<div class="btnrow"><button class="btn" id="refreshBrief">View updated briefing</button></div>';
   return h;
 }
 </script>
@@ -378,7 +378,7 @@ function speak(text){
   try{
     window.speechSynthesis.cancel();
     var u = new SpeechSynthesisUtterance(text);
-    u.lang = "zh-CN"; u.rate = 1.05;
+    u.lang = "en-US"; u.rate = 1.05;
     u.onstart = function(){ setBar("speaking"); };
     u.onend = u.onerror = function(){ setBar(""); };
     window.speechSynthesis.speak(u);
@@ -390,7 +390,7 @@ if(SR){
   micBtn.disabled = false;
   micBtn.addEventListener("click", function(){
     if(recog){ recog.stop(); return; }
-    recog = new SR(); recog.lang = "zh-CN"; recog.interimResults = false;
+    recog = new SR(); recog.lang = "en-US"; recog.interimResults = false;
     recog.onstart = function(){ micBtn.classList.add("live"); setBar("listening"); };
     recog.onend = function(){ micBtn.classList.remove("live"); setBar(""); recog=null; };
     recog.onerror = function(){ micBtn.classList.remove("live"); setBar(""); recog=null; };
@@ -402,20 +402,20 @@ if(SR){
     try{ recog.start(); }catch(e){ recog=null; }
   });
 } else {
-  micBtn.title = "此浏览器不支持语音识别，请打字";
+  micBtn.title = "Voice recognition not supported in this browser — please type";
 }
 
 /* ================= demo flows ================= */
 function mcpFail(err){
   unthinking();
-  addError("连接 MCP 后端失败："+(err.message||err)+"。请检查网络后重试。");
+  addError("MCP backend connection failed: "+(err.message||err)+". Please check your network and retry.");
 }
 function demoBriefing(){
-  addUser("Alexa，今天家里有什么需要注意的？");
+  addUser("Alexa, what needs attention at home today?");
   thinking();
   callTool("get_home_briefing", {}).then(function(r){
     unthinking();
-    addAlexa(r.data.summary||"这是今天的家庭简报。", true);
+    addAlexa(r.data.summary||"Here's today's home briefing.", true);
     var card = addCard(briefingCard(r.data, r.ms));
     card.querySelectorAll(".brow.tap").forEach(function(row){
       row.addEventListener("click", function(){
@@ -430,11 +430,11 @@ function demoBriefing(){
   }).catch(mcpFail);
 }
 function demoTriage(){
-  addUser("Alexa，热水器有异响，该怎么办？");
+  addUser("Alexa, the water heater is making a strange noise. What should I do?");
   thinking();
   callTool("report_issue", {appliance:"water heater", symptom:"strange noise"}).then(function(r){
     unthinking();
-    addAlexa(r.data.summary||"我查了一下这台设备的情况。", true);
+    addAlexa(r.data.summary||"I've checked this appliance.", true);
     addCard(triageCard(r.data, r.ms));
   }).catch(mcpFail);
 }
@@ -450,12 +450,12 @@ function chatPost(body){
     });
 }
 function demoPhoto(){
-  addUser("Alexa，我想拍照添加一台新设备。");
+  addUser("Alexa, I want to add a new appliance by photo.");
   thinking();
   callTool("start_photo_onboarding", {}).then(function(r){
     unthinking();
     var data = r.data;
-    addAlexa(data.summary||"请扫码拍照。", true);
+    addAlexa(data.summary||"Please scan the code to take a photo.", true);
     var token = null;
     try{ token = new URL(data.upload_url).searchParams.get("token"); }catch(e){}
     var qc = qrCard(data, token, r.ms);
@@ -466,7 +466,7 @@ function demoPhoto(){
       document.getElementById("qrbox").innerHTML = qr.createSvgTag({scalable:true});
     }catch(e){
       document.getElementById("qrbox").innerHTML =
-        '<div style="color:#333;font-size:12px;padding:20px">QR 生成失败，请复制上方链接</div>';
+        '<div style="color:#333;font-size:12px;padding:20px">QR generation failed — please copy the link above</div>';
     }
     startCountdown(15*60);
     var s3key = token ? ("uploads/"+token+".jpg") : null;
@@ -477,7 +477,7 @@ function demoPhoto(){
     }
     function onUploaded(){
       if(done) return; done = true;
-      setStatus("✅ 照片已收到，正在识别铭牌…", "done");
+      setStatus("✅ Photo received — scanning nameplate…", "done");
       extractAndConfirm(card, s3key, token);
     }
     document.getElementById("alreadyUp").addEventListener("click", onUploaded);
@@ -498,19 +498,19 @@ function startCountdown(sec){
   if(!el) return;
   var t = setInterval(function(){
     sec--;
-    if(sec<=0){ clearInterval(t); if(el) el.textContent="已过期"; return; }
+    if(sec<=0){ clearInterval(t); if(el) el.textContent="Expired"; return; }
     if(el) el.textContent = String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0");
   }, 1000);
 }
 function extractAndConfirm(cardEl, s3key, token){
-  if(!CHAT_URL){ addError("识别服务尚未部署。"); return; }
+  if(!CHAT_URL){ addError("Recognition service is not deployed yet."); return; }
   chatPost({action:"extract_nameplate", s3_key:s3key}).then(function(f){
-    if(f.error){ addError("铭牌识别失败："+f.error); return; }
-    addAlexa("铭牌识别完成，请确认信息无误。", true);
+    if(f.error){ addError("Nameplate recognition failed: "+f.error); return; }
+    addAlexa("Nameplate scan complete — please verify the details.", true);
     var fc = fieldsCard(f, s3key);
     var card = addCard(fc.html);
     document.getElementById("cancelAdd").addEventListener("click", function(){
-      addAlexa("好的，已取消添加。", true);
+      addAlexa("OK, add cancelled.", true);
     });
     document.getElementById("confirmAdd").addEventListener("click", function(){
       var v = function(o){ return (o&&o.value)||null; };
@@ -522,12 +522,12 @@ function extractAndConfirm(cardEl, s3key, token){
         brand: v(f.brand), model: v(f.model)
       }).then(function(r){
         unthinking();
-        addAlexa(r.data.summary||"已添加。", true);
+        addAlexa(r.data.summary||"Added.", true);
         var c2 = addCard(addedCard(r.data, r.ms));
         c2.querySelector("#refreshBrief").addEventListener("click", demoBriefing);
       }).catch(mcpFail);
     });
-  }).catch(function(e){ addError("铭牌识别失败："+(e.message||e)); });
+  }).catch(function(e){ addError("Nameplate recognition failed: "+(e.message||e)); });
 }
 
 /* ================= free ask ================= */
@@ -538,7 +538,7 @@ function freeAsk(text){
   document.getElementById("textInput").value = "";
   addUser(text);
   if(!CHAT_URL){
-    addAlexa("“随便问”模式还在上线中（Bedrock 聊天服务部署后可用）。先试试上方三个演示按钮 ☝️", true);
+    addAlexa("Free-ask mode is still coming online (Bedrock chat deploys separately). Try the three demo buttons above ☝️", true);
     return;
   }
   thinking();
@@ -547,7 +547,7 @@ function freeAsk(text){
     unthinking();
     if(d.error){ addError(d.error); return; }
     chatHistory.push({role:"assistant", text:d.reply||""});
-    addAlexa(d.reply||"（无回复）", true);
+    addAlexa(d.reply||"(no reply)", true);
     (d.tool_calls||[]).forEach(function(tc){
       if(!tc.result) return;
       try{
@@ -557,7 +557,7 @@ function freeAsk(text){
         else if(tc.name==="get_appliance"&&tc.result.appliance) addCard(detailCard(tc.result, 0, "Bedrock chat"));
       }catch(e){/* card render is best-effort */}
     });
-  }).catch(function(e){ unthinking(); addError("聊天服务出错："+(e.message||e)); });
+  }).catch(function(e){ unthinking(); addError("Chat service error: "+(e.message||e)); });
 }
 
 /* ================= wiring & init ================= */
@@ -576,9 +576,9 @@ document.getElementById("textInput").addEventListener("keydown", function(e){
   if(e.key==="Enter") freeAsk(e.target.value);
 });
 mcpInit().then(function(){
-  addAlexa("你好，我是 HomeKeeper 🏠 每台设备我都记得，每项保养都准时。试试下面的演示，或直接问我家里的事。", false);
+  addAlexa("Hi, I'm HomeKeeper 🏠 Every appliance remembered, every task on time. Try the demos below, or just ask me about your home.", false);
 }).catch(function(){
-  addError("MCP 后端连接失败，演示按钮不可用。请检查网络后刷新。");
+  addError("MCP backend connection failed — demo buttons unavailable. Check your network and refresh.");
 });
 </script>
 </body>
