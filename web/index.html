@@ -293,7 +293,7 @@ function triageCard(data, ms, source){
   h += '<div class="krow"><span class="k">已使用</span><span class="v">'+esc(data.device_age||"—")+'</span></div>';
   h += '<div class="krow"><span class="k">保修</span><span class="v '+wcls+'">'+esc(wtxt)+'</span></div>';
   h += '<div class="krow"><span class="k">上次保养</span><span class="v">'
-     + esc(data.last_maintenance ? (data.last_maintenance.task+" · "+data.last_maintenance.last_done) : "无记录")
+     + esc(data.last_maintenance ? (data.last_maintenance.task+" · "+(data.last_maintenance.date||data.last_maintenance.last_done||"")) : "无记录")
      + '</span></div>';
   h += '<div class="krow"><span class="k">未完成任务</span><span class="v">'+(data.open_tasks||[]).length+'</span></div>';
   if(data.triage && data.triage.note)
@@ -531,7 +531,7 @@ function extractAndConfirm(cardEl, s3key, token){
 }
 
 /* ================= free ask ================= */
-var history = [];
+var chatHistory = [];
 function freeAsk(text){
   text = (text||"").trim();
   if(!text) return;
@@ -542,11 +542,11 @@ function freeAsk(text){
     return;
   }
   thinking();
-  history.push({role:"user", text:text});
-  chatPost({action:"chat", message:text, history:history.slice(-10)}).then(function(d){
+  chatHistory.push({role:"user", text:text});
+  chatPost({action:"chat", message:text, history:chatHistory.slice(-10)}).then(function(d){
     unthinking();
     if(d.error){ addError(d.error); return; }
-    history.push({role:"assistant", text:d.reply||""});
+    chatHistory.push({role:"assistant", text:d.reply||""});
     addAlexa(d.reply||"（无回复）", true);
     (d.tool_calls||[]).forEach(function(tc){
       if(!tc.result) return;
