@@ -1,0 +1,1052 @@
+{
+  "categories": {
+    "hvac": {
+      "consumables": [
+        {
+          "name": "Air filter",
+          "search_keywords": "HVAC air filter"
+        },
+        {
+          "name": "Condensate drain cleaner",
+          "search_keywords": "HVAC condensate drain cleaner tablets"
+        }
+      ],
+      "display_name": "HVAC System",
+      "fault_triage": {
+        "burning smell": {
+          "advice": "professional",
+          "note": "Turn the system off and call a technician promptly — do not keep running it."
+        },
+        "not heating or cooling": {
+          "advice": "self_check",
+          "note": "Check the thermostat, breaker, and filter first; if all fine, call a technician."
+        },
+        "weak airflow": {
+          "advice": "self_check",
+          "note": "A clogged filter is the most common cause — replace it and recheck vents."
+        }
+      },
+      "maintenance_tasks": [
+        {
+          "interval_days": 90,
+          "task": "Replace air filter"
+        },
+        {
+          "interval_days": 180,
+          "task": "Clean condensate drain"
+        },
+        {
+          "interval_days": 365,
+          "task": "Professional tune-up"
+        }
+      ],
+      "typical_warranty_years": 10
+    },
+    "refrigerator": {
+      "consumables": [
+        {
+          "name": "Water filter cartridge",
+          "search_keywords": "refrigerator water filter cartridge"
+        },
+        {
+          "name": "Condenser coil cleaning brush",
+          "search_keywords": "refrigerator coil cleaning brush"
+        }
+      ],
+      "display_name": "Refrigerator",
+      "fault_triage": {
+        "ice maker not working": {
+          "advice": "self_check",
+          "note": "Check the water supply line and the ice maker arm/switch before calling anyone."
+        },
+        "not cooling": {
+          "advice": "professional",
+          "note": "Check thermostat setting and vents first; if still warm, call service — compressor issues are not DIY."
+        },
+        "strange noise": {
+          "advice": "self_check",
+          "note": "Rattling is often an unlevel unit or items vibrating on top; persistent buzzing needs a technician."
+        }
+      },
+      "maintenance_tasks": [
+        {
+          "interval_days": 180,
+          "task": "Clean condenser coils"
+        },
+        {
+          "interval_days": 180,
+          "task": "Replace water filter"
+        },
+        {
+          "interval_days": 365,
+          "task": "Check door seals"
+        }
+      ],
+      "typical_warranty_years": 5
+    },
+    "smoke_alarm": {
+      "consumables": [
+        {
+          "name": "9V battery",
+          "search_keywords": "9V battery for smoke alarm"
+        },
+        {
+          "name": "Smoke alarm unit",
+          "search_keywords": "hardwired smoke alarm 10 year"
+        }
+      ],
+      "display_name": "Smoke Alarm",
+      "fault_triage": {
+        "chirping": {
+          "advice": "self_check",
+          "note": "Usually a low battery — replace it; if chirping continues the unit may be expired."
+        },
+        "false alarms": {
+          "advice": "self_check",
+          "note": "Dust the sensor and check placement away from kitchens/bathrooms; persistent false alarms mean replace."
+        },
+        "no sound on test": {
+          "advice": "self_check",
+          "note": "Replace batteries first; if still silent, replace the whole unit immediately."
+        }
+      },
+      "maintenance_tasks": [
+        {
+          "interval_days": 30,
+          "task": "Monthly test"
+        },
+        {
+          "interval_days": 365,
+          "task": "Replace batteries"
+        },
+        {
+          "interval_days": 3650,
+          "task": "Replace unit (10-year life)"
+        }
+      ],
+      "typical_warranty_years": 10
+    },
+    "water_heater": {
+      "consumables": [
+        {
+          "name": "Anode rod",
+          "search_keywords": "water heater anode rod"
+        },
+        {
+          "name": "Drain valve",
+          "search_keywords": "water heater drain valve"
+        }
+      ],
+      "display_name": "Water Heater",
+      "fault_triage": {
+        "leaking from tank": {
+          "advice": "professional",
+          "note": "A leaking tank generally means replacement, not repair. Shut off water and power."
+        },
+        "no hot water": {
+          "advice": "professional",
+          "note": "Check the breaker/thermostat first; gas or element failures need a technician."
+        },
+        "rumbling or popping noise": {
+          "advice": "self_check",
+          "note": "Usually sediment buildup — flushing the tank often fixes it."
+        }
+      },
+      "maintenance_tasks": [
+        {
+          "interval_days": 365,
+          "task": "Flush tank sediment"
+        },
+        {
+          "interval_days": 1095,
+          "task": "Inspect anode rod"
+        },
+        {
+          "interval_days": 180,
+          "task": "Test T&P relief valve"
+        }
+      ],
+      "typical_warranty_years": 6
+    },
+    "water_purifier": {
+      "consumables": [
+        {
+          "name": "Filter cartridge",
+          "search_keywords": "water purifier replacement filter cartridge"
+        },
+        {
+          "name": "TDS meter",
+          "search_keywords": "TDS water quality meter"
+        }
+      ],
+      "display_name": "Water Purifier",
+      "fault_triage": {
+        "bad taste or odor": {
+          "advice": "self_check",
+          "note": "Replace the cartridge and sanitize the system; if it persists, check the source water."
+        },
+        "leaking": {
+          "advice": "professional",
+          "note": "Shut off the inlet valve and call service — leaks risk water damage."
+        },
+        "slow water flow": {
+          "advice": "self_check",
+          "note": "Almost always an expired filter cartridge — replace it first."
+        }
+      },
+      "maintenance_tasks": [
+        {
+          "interval_days": 180,
+          "task": "Replace filter cartridge"
+        },
+        {
+          "interval_days": 365,
+          "task": "Sanitize system"
+        },
+        {
+          "interval_days": 30,
+          "task": "Check TDS reading"
+        }
+      ],
+      "typical_warranty_years": 2
+    },
+    "dishwasher": {
+      "display_name": "Dishwasher",
+      "maintenance_tasks": [
+        {
+          "task": "Clean filter",
+          "interval_days": 30
+        },
+        {
+          "task": "Run empty cleaning cycle",
+          "interval_days": 90
+        },
+        {
+          "task": "Inspect spray arms and door seal",
+          "interval_days": 180
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Dishwasher cleaner",
+          "search_keywords": "dishwasher cleaner tablets"
+        },
+        {
+          "name": "Rinse aid",
+          "search_keywords": "dishwasher rinse aid"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "dishes not coming out clean": {
+          "advice": "self_check",
+          "note": "Clean the filter and spray arms, and stop pre-rinsing everything — modern detergents need some soil to work."
+        },
+        "leaking onto the floor": {
+          "advice": "professional",
+          "note": "Check the door seal for debris first; a persistent leak needs service before it damages the floor."
+        },
+        "control panel not responding": {
+          "advice": "warranty",
+          "note": "Try the breaker reset once; if the panel stays dead and the unit is under warranty, file a manufacturer claim."
+        }
+      }
+    },
+    "clothes_washer": {
+      "display_name": "Washing Machine",
+      "maintenance_tasks": [
+        {
+          "task": "Run tub-clean cycle",
+          "interval_days": 30
+        },
+        {
+          "task": "Clean detergent dispenser",
+          "interval_days": 90
+        },
+        {
+          "task": "Inspect hoses for bulges or leaks",
+          "interval_days": 180
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Washing machine cleaner",
+          "search_keywords": "washing machine cleaner tablets"
+        },
+        {
+          "name": "Inlet hoses",
+          "search_keywords": "washing machine inlet hose stainless steel"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "not draining": {
+          "advice": "self_check",
+          "note": "Check the drain pump filter and make sure the drain hose is not kinked before calling anyone."
+        },
+        "shaking or walking during spin": {
+          "advice": "self_check",
+          "note": "Level the feet and redistribute the load; an unbalanced load is the most common cause."
+        },
+        "leaking water": {
+          "advice": "professional",
+          "note": "Shut off the water valves now. A hose or pump-seal leak can flood fast — get service."
+        }
+      }
+    },
+    "clothes_dryer": {
+      "display_name": "Clothes Dryer",
+      "maintenance_tasks": [
+        {
+          "task": "Deep-clean lint trap housing",
+          "interval_days": 30
+        },
+        {
+          "task": "Wipe moisture sensor bars",
+          "interval_days": 90
+        },
+        {
+          "task": "Inspect drum seal and belt",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Lint trap cleaning brush",
+          "search_keywords": "dryer lint trap cleaning brush"
+        },
+        {
+          "name": "Wool dryer balls",
+          "search_keywords": "wool dryer balls"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "not heating": {
+          "advice": "professional",
+          "note": "Check the breaker and thermal fuse first; heating-element or gas-valve failures need a technician."
+        },
+        "taking too long to dry": {
+          "advice": "self_check",
+          "note": "Clean the lint trap housing and the vent duct — restricted airflow is the usual cause and a fire risk."
+        },
+        "thumping or squealing noise": {
+          "advice": "self_check",
+          "note": "Often a coin or object in the drum; persistent squealing usually means worn drum rollers."
+        }
+      }
+    },
+    "dryer_vent": {
+      "display_name": "Dryer Vent",
+      "maintenance_tasks": [
+        {
+          "task": "Check for lint buildup behind dryer",
+          "interval_days": 180
+        },
+        {
+          "task": "Clean vent duct and exterior hood",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Vent cleaning kit",
+          "search_keywords": "dryer vent cleaning brush kit"
+        },
+        {
+          "name": "Flexible aluminum duct",
+          "search_keywords": "flexible aluminum dryer vent duct"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "burning smell while drying": {
+          "advice": "professional",
+          "note": "Stop using the dryer and clean the vent immediately — lint buildup is a leading cause of house fires."
+        },
+        "weak airflow at exterior hood": {
+          "advice": "self_check",
+          "note": "The duct is likely clogged; clean it end to end and check the hood flap moves freely."
+        },
+        "dryer overheating or shutting off": {
+          "advice": "professional",
+          "note": "A restricted vent trips the thermal fuse; clear the vent, then have the fuse checked."
+        }
+      }
+    },
+    "oven_range": {
+      "display_name": "Oven / Range",
+      "maintenance_tasks": [
+        {
+          "task": "Clean burner grates and drip pans",
+          "interval_days": 90
+        },
+        {
+          "task": "Run self-clean cycle",
+          "interval_days": 180
+        },
+        {
+          "task": "Check oven temperature calibration",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Oven cleaner",
+          "search_keywords": "oven cleaner spray"
+        },
+        {
+          "name": "Drip pans",
+          "search_keywords": "electric range drip pans"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "oven not heating": {
+          "advice": "professional",
+          "note": "Check the breaker first; a dead bake element or igniter needs a technician."
+        },
+        "smell of gas": {
+          "advice": "professional",
+          "note": "Do not use the range. Ventilate, do not flip switches, and call the gas company or a technician."
+        },
+        "uneven baking": {
+          "advice": "self_check",
+          "note": "Verify temperature with an oven thermometer and recalibrate; also check rack position."
+        }
+      }
+    },
+    "microwave": {
+      "display_name": "Microwave",
+      "maintenance_tasks": [
+        {
+          "task": "Clean grease filter",
+          "interval_days": 30
+        },
+        {
+          "task": "Deep-clean interior",
+          "interval_days": 90
+        },
+        {
+          "task": "Check door seal",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Splatter cover",
+          "search_keywords": "microwave splatter cover"
+        },
+        {
+          "name": "Grease filter",
+          "search_keywords": "microwave grease filter replacement"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "not heating food": {
+          "advice": "professional",
+          "note": "Magnetron or capacitor failure — not DIY; capacitors can hold a lethal charge even unplugged."
+        },
+        "sparking inside": {
+          "advice": "self_check",
+          "note": "Remove any metal and clean the waveguide cover; persistent sparking needs service."
+        },
+        "turntable not rotating": {
+          "advice": "self_check",
+          "note": "Reseat the glass tray on the roller ring and check the coupler underneath."
+        }
+      }
+    },
+    "garbage_disposal": {
+      "display_name": "Garbage Disposal",
+      "maintenance_tasks": [
+        {
+          "task": "Grind ice cubes and citrus",
+          "interval_days": 30
+        },
+        {
+          "task": "Clean splash guard",
+          "interval_days": 90
+        },
+        {
+          "task": "Check for leaks under sink",
+          "interval_days": 180
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Disposal cleaner pods",
+          "search_keywords": "garbage disposal cleaner pods"
+        },
+        {
+          "name": "Splash guard",
+          "search_keywords": "garbage disposal splash guard replacement"
+        }
+      ],
+      "typical_warranty_years": 2,
+      "fault_triage": {
+        "humming but not grinding": {
+          "advice": "self_check",
+          "note": "Press the reset button on the bottom, then turn the flywheel with a hex key — never put a hand inside."
+        },
+        "leaking from the bottom": {
+          "advice": "professional",
+          "note": "A bottom leak usually means the seals failed and the unit needs replacement."
+        },
+        "completely dead, no sound": {
+          "advice": "warranty",
+          "note": "Check the wall switch and breaker, then the reset button; if still dead and under warranty, file a claim."
+        }
+      }
+    },
+    "garage_door_opener": {
+      "display_name": "Garage Door Opener",
+      "maintenance_tasks": [
+        {
+          "task": "Test auto-reverse safety",
+          "interval_days": 90
+        },
+        {
+          "task": "Lubricate chain or screw drive",
+          "interval_days": 180
+        },
+        {
+          "task": "Visually inspect springs and cables",
+          "interval_days": 365
+        },
+        {
+          "task": "Replace remote batteries",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Garage door lubricant",
+          "search_keywords": "garage door lubricant spray"
+        },
+        {
+          "name": "Remote battery",
+          "search_keywords": "garage door remote battery"
+        }
+      ],
+      "typical_warranty_years": 3,
+      "fault_triage": {
+        "door will not close": {
+          "advice": "self_check",
+          "note": "Check the safety sensors — clean the lenses and realign them so the indicator lights are steady."
+        },
+        "broken spring": {
+          "advice": "professional",
+          "note": "Do not attempt this yourself — torsion springs are under extreme tension and can cause serious injury."
+        },
+        "noisy operation": {
+          "advice": "self_check",
+          "note": "Lubricate the chain/screw and rollers; grinding gears usually mean worn drive gears."
+        }
+      }
+    },
+    "carbon_monoxide_alarm": {
+      "display_name": "Carbon Monoxide Alarm",
+      "maintenance_tasks": [
+        {
+          "task": "Monthly test",
+          "interval_days": 30
+        },
+        {
+          "task": "Replace batteries",
+          "interval_days": 365
+        },
+        {
+          "task": "Replace unit (7-year life)",
+          "interval_days": 2555
+        }
+      ],
+      "consumables": [
+        {
+          "name": "9V battery",
+          "search_keywords": "9V battery for CO alarm"
+        },
+        {
+          "name": "CO alarm unit",
+          "search_keywords": "plug-in carbon monoxide detector"
+        }
+      ],
+      "typical_warranty_years": 5,
+      "fault_triage": {
+        "alarm sounding continuously": {
+          "advice": "professional",
+          "note": "Treat it as real: evacuate immediately and call emergency services. Do not re-enter to silence it."
+        },
+        "chirping every 30-60 seconds": {
+          "advice": "self_check",
+          "note": "Usually a low battery — replace it; if chirping continues the unit has reached end of life."
+        },
+        "false alarms": {
+          "advice": "self_check",
+          "note": "Check placement away from fuel-burning appliances and humidity; persistent false alarms mean replace the unit."
+        }
+      }
+    },
+    "furnace": {
+      "display_name": "Furnace",
+      "maintenance_tasks": [
+        {
+          "task": "Replace air filter",
+          "interval_days": 90
+        },
+        {
+          "task": "Professional heating tune-up",
+          "interval_days": 365
+        },
+        {
+          "task": "Inspect flue and venting",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Furnace air filter",
+          "search_keywords": "furnace air filter"
+        },
+        {
+          "name": "Flame sensor",
+          "search_keywords": "furnace flame sensor replacement"
+        }
+      ],
+      "typical_warranty_years": 10,
+      "fault_triage": {
+        "no heat": {
+          "advice": "professional",
+          "note": "Check the thermostat, breaker, and filter first; gas valve or igniter failures need a technician."
+        },
+        "short cycling on and off": {
+          "advice": "self_check",
+          "note": "A clogged filter is the most common cause — replace it and see if the cycling stops."
+        },
+        "strong gas smell": {
+          "advice": "professional",
+          "note": "Shut the system off, leave the house, and call the gas company from outside."
+        }
+      }
+    },
+    "central_ac": {
+      "display_name": "Central Air Conditioner",
+      "maintenance_tasks": [
+        {
+          "task": "Replace air filter",
+          "interval_days": 90
+        },
+        {
+          "task": "Clean condenser coils",
+          "interval_days": 180
+        },
+        {
+          "task": "Professional cooling tune-up",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "AC air filter",
+          "search_keywords": "central air conditioner filter"
+        },
+        {
+          "name": "Condenser coil cleaner",
+          "search_keywords": "AC condenser coil cleaner"
+        }
+      ],
+      "typical_warranty_years": 10,
+      "fault_triage": {
+        "blowing warm air": {
+          "advice": "professional",
+          "note": "Check the filter, breaker, and thermostat first; low refrigerant or electrical faults need a technician."
+        },
+        "ice on the refrigerant lines": {
+          "advice": "self_check",
+          "note": "Turn the system off, replace the filter, and let it thaw fully; if icing returns, call for service."
+        },
+        "water leaking indoors": {
+          "advice": "self_check",
+          "note": "The condensate drain is likely clogged — clear it; persistent leaks need a technician."
+        }
+      }
+    },
+    "water_softener": {
+      "display_name": "Water Softener",
+      "maintenance_tasks": [
+        {
+          "task": "Check salt level",
+          "interval_days": 30
+        },
+        {
+          "task": "Clean brine tank",
+          "interval_days": 365
+        },
+        {
+          "task": "Sanitize system",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Softener salt",
+          "search_keywords": "water softener salt pellets"
+        },
+        {
+          "name": "Resin cleaner",
+          "search_keywords": "water softener resin cleaner"
+        }
+      ],
+      "typical_warranty_years": 5,
+      "fault_triage": {
+        "hard water spots returning": {
+          "advice": "self_check",
+          "note": "Check the salt level and run a manual regeneration; no salt is the most common cause."
+        },
+        "salty taste in water": {
+          "advice": "self_check",
+          "note": "Check the rinse settings and for a stuck valve; run an extra regeneration cycle."
+        },
+        "leaking from the unit": {
+          "advice": "professional",
+          "note": "Put the softener in bypass mode to stop the leak, then call for service."
+        }
+      }
+    },
+    "sump_pump": {
+      "display_name": "Sump Pump",
+      "maintenance_tasks": [
+        {
+          "task": "Test pump operation",
+          "interval_days": 90
+        },
+        {
+          "task": "Clean pit and inlet screen",
+          "interval_days": 180
+        },
+        {
+          "task": "Inspect discharge line",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Check valve",
+          "search_keywords": "sump pump check valve"
+        },
+        {
+          "name": "Backup battery",
+          "search_keywords": "sump pump backup battery"
+        }
+      ],
+      "typical_warranty_years": 3,
+      "fault_triage": {
+        "pump will not turn on": {
+          "advice": "professional",
+          "note": "Check power and free the float switch first; a dead motor needs replacement before the next rain."
+        },
+        "running constantly": {
+          "advice": "self_check",
+          "note": "Usually a stuck float switch — free it; if the water table is genuinely high, the pump is doing its job."
+        },
+        "noisy grinding": {
+          "advice": "self_check",
+          "note": "Clear debris from the pit; persistent grinding means a worn impeller."
+        }
+      }
+    },
+    "bathroom_exhaust_fan": {
+      "display_name": "Bathroom Exhaust Fan",
+      "maintenance_tasks": [
+        {
+          "task": "Clean grille and fan housing",
+          "interval_days": 180
+        },
+        {
+          "task": "Check vent airflow at exterior",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Replacement grille",
+          "search_keywords": "bathroom exhaust fan grille cover"
+        },
+        {
+          "name": "Fan motor kit",
+          "search_keywords": "bathroom exhaust fan motor replacement"
+        }
+      ],
+      "typical_warranty_years": 3,
+      "fault_triage": {
+        "weak airflow": {
+          "advice": "self_check",
+          "note": "Clean dust from the grille and blades, and make sure the exterior damper opens freely."
+        },
+        "loud rattling": {
+          "advice": "self_check",
+          "note": "Dust buildup is the usual cause; a worn motor bearing means the motor kit needs replacing."
+        },
+        "not turning on": {
+          "advice": "self_check",
+          "note": "Check the wall switch and breaker; if both are fine, the motor or wiring needs an electrician."
+        }
+      }
+    },
+    "range_hood": {
+      "display_name": "Range Hood",
+      "maintenance_tasks": [
+        {
+          "task": "Clean grease filter",
+          "interval_days": 30
+        },
+        {
+          "task": "Replace charcoal filter (if ductless)",
+          "interval_days": 180
+        },
+        {
+          "task": "Deep-clean hood interior",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Grease filter",
+          "search_keywords": "range hood grease filter"
+        },
+        {
+          "name": "Charcoal filter",
+          "search_keywords": "range hood charcoal filter"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "weak suction": {
+          "advice": "self_check",
+          "note": "Wash the grease filter and check that the damper flap is not stuck shut."
+        },
+        "fan making noise": {
+          "advice": "self_check",
+          "note": "Grease on the blower wheel is the usual cause; a worn motor hums even when clean."
+        },
+        "light not working": {
+          "advice": "self_check",
+          "note": "Replace the bulb first; if a new bulb stays dark, check the wiring."
+        }
+      }
+    },
+    "dehumidifier": {
+      "display_name": "Dehumidifier",
+      "maintenance_tasks": [
+        {
+          "task": "Empty and clean bucket",
+          "interval_days": 30
+        },
+        {
+          "task": "Clean air filter",
+          "interval_days": 90
+        },
+        {
+          "task": "Clean coils",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Replacement air filter",
+          "search_keywords": "dehumidifier air filter"
+        },
+        {
+          "name": "Drain hose",
+          "search_keywords": "dehumidifier drain hose"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "not collecting water": {
+          "advice": "self_check",
+          "note": "Check the humidity setpoint and room temperature — most units will not dehumidify a cold room."
+        },
+        "leaking water": {
+          "advice": "self_check",
+          "note": "Reseat the bucket fully and check the drain hose for kinks."
+        },
+        "coils icing up": {
+          "advice": "self_check",
+          "note": "The room is too cold for the unit; let it defrost and raise the room temperature."
+        }
+      }
+    },
+    "humidifier": {
+      "display_name": "Whole-Home Humidifier",
+      "maintenance_tasks": [
+        {
+          "task": "Clean water distribution system",
+          "interval_days": 180
+        },
+        {
+          "task": "Replace water panel",
+          "interval_days": 365
+        },
+        {
+          "task": "Inspect humidistat and damper",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Water panel",
+          "search_keywords": "humidifier water panel evaporator pad"
+        },
+        {
+          "name": "Replacement humidistat",
+          "search_keywords": "humidifier humidistat"
+        }
+      ],
+      "typical_warranty_years": 5,
+      "fault_triage": {
+        "no humidity output": {
+          "advice": "self_check",
+          "note": "Check the water supply valve, replace a clogged water panel, and confirm the damper is open for winter."
+        },
+        "leaking water": {
+          "advice": "self_check",
+          "note": "A clogged drain or cracked water panel is the usual cause — clear or replace it."
+        },
+        "white dust on furniture": {
+          "advice": "self_check",
+          "note": "Mineral dust from hard water — switch to demineralized water and clean the unit."
+        }
+      }
+    },
+    "lawn_sprinkler": {
+      "display_name": "Lawn Sprinkler System",
+      "maintenance_tasks": [
+        {
+          "task": "Inspect and adjust sprinkler heads",
+          "interval_days": 90
+        },
+        {
+          "task": "Check valves for leaks",
+          "interval_days": 180
+        },
+        {
+          "task": "Winterize and blow out lines",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Sprinkler head",
+          "search_keywords": "lawn sprinkler head replacement"
+        },
+        {
+          "name": "Rain sensor",
+          "search_keywords": "sprinkler rain sensor"
+        }
+      ],
+      "typical_warranty_years": 3,
+      "fault_triage": {
+        "dry patches in the lawn": {
+          "advice": "self_check",
+          "note": "Clean or replace clogged heads and check water pressure before assuming a valve problem."
+        },
+        "water pooling around a head": {
+          "advice": "self_check",
+          "note": "Usually a cracked head or bad seal — replace the head; check the valve if several heads leak."
+        },
+        "zone will not turn on": {
+          "advice": "professional",
+          "note": "Check the controller programming first; a dead valve solenoid or cut wire needs a technician."
+        }
+      }
+    },
+    "chimney_fireplace": {
+      "display_name": "Chimney / Fireplace",
+      "maintenance_tasks": [
+        {
+          "task": "Check damper and cap",
+          "interval_days": 180
+        },
+        {
+          "task": "Annual chimney inspection",
+          "interval_days": 365
+        },
+        {
+          "task": "Chimney sweep (if wood-burning)",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Chimney cap",
+          "search_keywords": "chimney cap replacement"
+        },
+        {
+          "name": "Fireplace door gasket",
+          "search_keywords": "fireplace door gasket"
+        }
+      ],
+      "typical_warranty_years": 2,
+      "fault_triage": {
+        "smoke entering the room": {
+          "advice": "professional",
+          "note": "Do not use the fireplace — a blocked flue or draft problem needs a certified sweep to diagnose."
+        },
+        "heavy creosote buildup": {
+          "advice": "professional",
+          "note": "Schedule a sweep promptly; thick creosote is a chimney-fire risk."
+        },
+        "damper stuck": {
+          "advice": "self_check",
+          "note": "Try penetrating lubricant on the hinge; a rusted-through damper needs replacement."
+        }
+      }
+    },
+    "doorbell": {
+      "display_name": "Video Doorbell",
+      "maintenance_tasks": [
+        {
+          "task": "Recharge or replace batteries",
+          "interval_days": 90
+        },
+        {
+          "task": "Clean camera lens",
+          "interval_days": 180
+        },
+        {
+          "task": "Test chime and motion zones",
+          "interval_days": 365
+        }
+      ],
+      "consumables": [
+        {
+          "name": "Battery pack",
+          "search_keywords": "video doorbell rechargeable battery pack"
+        },
+        {
+          "name": "Angle mount",
+          "search_keywords": "video doorbell angle mount"
+        }
+      ],
+      "typical_warranty_years": 1,
+      "fault_triage": {
+        "not ringing the chime": {
+          "advice": "self_check",
+          "note": "Charge the battery and check the chime wiring and transformer voltage."
+        },
+        "poor video quality": {
+          "advice": "self_check",
+          "note": "Clean the lens and check Wi-Fi signal strength at the door."
+        },
+        "completely dead unit": {
+          "advice": "warranty",
+          "note": "Try a different charger and a device reset; if still dead and under warranty, file a claim."
+        }
+      }
+    }
+  },
+  "note": "HomeKeeper Appliance Catalog — static knowledge base and the hallucination guard. The model may extract brand/model from a photo, but maintenance intervals, warranty lengths, and triage guidance ALWAYS come from this table, never from the LLM. 25 categories curated 2026-10-04.",
+  "version": "0.2"
+}
