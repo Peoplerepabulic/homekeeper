@@ -369,7 +369,8 @@ def _chat(message, history):
             results.append({
                 "toolResult": {
                     "toolUseId": c["toolUseId"],
-                    "content": {"json": res},
+                    # Converse requires content as a LIST of content blocks
+                    "content": [{"json": res}],
                 }
             })
         messages.append({"role": "user", "content": results})
