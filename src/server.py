@@ -10,10 +10,17 @@ this module is a thin MCP wrapper that shapes speakable responses.
 
 from fastmcp import FastMCP
 
+import os
 import store
 from store import ApplianceLookupError, get_catalog
 
 mcp = FastMCP("homekeeper")
+
+# Real photo-upload page (CloudFront). The QR card encodes
+# f"{_UPLOAD_PAGE_URL}?token=<token>"; the token row in DynamoDB is the auth.
+_UPLOAD_PAGE_URL = os.environ.get(
+    "UPLOAD_PAGE_URL", "https://d250h79d4lokny.cloudfront.net/upload.html"
+)
 
 # Last-resort briefing when neither DynamoDB nor the local seed can answer.
 # Dates assume DEMO_CLOCK=2026-10-04.
@@ -217,8 +224,7 @@ def start_photo_onboarding() -> dict:
     emailed on voice-only devices).
     """
     tok = store.create_upload_token()
-    # TODO(Phase 2): replace with the real S3+CloudFront presigned upload URL.
-    upload_url = f"https://example.com/upload/{tok['token']}"
+    upload_url = f"{_UPLOAD_PAGE_URL}?token={tok['token']}"
     return {
         "summary": (
             "Photo onboarding started. Scan the QR code with your phone, "
