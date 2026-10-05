@@ -3,6 +3,70 @@
 Region: `us-east-1`. Profile: `alexa-ai-user` (IAM user `alexa-ai-tools`,
 account 955857822289). All commands below need
 `AWS_PROFILE=alexa-ai-user AWS_REGION=us-east-1`.
+For CloudFront/global calls add `--cli-read-timeout 300` (the VM proxy makes
+the default 60 s read timeout flaky; with 300 s the calls succeed in ~2 s).
+
+---
+
+# AWS Deploy II — S3/CloudFront web + presign Lambda (2026-10-04)
+
+## What was created
+
+| Resource | Name / value |
+|---|---|
+| S3 bucket (web) | `homekeeper-web-955857822289` — policy allows only the CloudFront OAC |
+| CloudFront OAC | `EAZWT4H1DWNWL` |
+| CloudFront distribution | `E2WW46N7SQVZRL` → `https://d250h79d4lokny.cloudfront.net/` (Deployed; DefaultRootObject `upload.html`; PriceClass_100; CachingDisabled so demo edits show immediately) |
+| Web files | `web/index.html` (demo console placeholder), `web/upload.html` (wired to the presign endpoint) |
+| S3 bucket (uploads) | `homekeeper-uploads-955857822289` — CORS allows PUT from the CloudFront origin only; lifecycle expires `uploads/*` after 7 days |
+| Lambda function | `homekeeper-presign` — python3.12, 256 MB, 15 s timeout (`deploy/presign_lambda.py`) |
+| Function URL | `https://4y52ctpkwpgzyf73545z4tw4li0ahghj.lambda-url.us-east-1.on.aws/` (auth `NONE`; the UPLOAD# token is the auth) |
+| IAM role | `homekeeper-presign-role` — `AWSLambdaBasicExecutionRole` + inline: `dynamodb:GetItem` on `homekeeper`, `s3:PutObject` on `homekeeper-uploads-955857822289/uploads/*` |
+| Env vars | `HOMEKEEPER_TABLE=homekeeper`, `UPLOADS_BUCKET=homekeeper-uploads-955857822289`, `DEMO_USER_ID=demo-household-1` |
+
+## Presign flow
+
+`start_photo_onboarding` (hot path) mints `UPLOAD#<token>` (15-min TTL) →
+phone opens `https://d250h79d4lokny.cloudfront.net/upload.html?token=<token>` →
+page GETs presign `?token=` → Lambda checks the row exists + `ttl > now` →
+returns `{upload_url, s3_key}` → page PUTs the photo straight to S3.
+Verified: `python3 deploy/verify_presign.py` (real token → 200, bogus → 403,
+missing → 400). CloudFront serves the page with HTTP 200 (verified via curl).
+
+## Gotchas hit (also in FRICTION_LOG.md)
+
+6. **Python name-shadowing**: a module-level `_s3 = None` cache plus
+   `def _s3():` rebinds the name to the function, so the first call returns
+   the function itself (`'function' object has no attribute
+   'generate_presigned_url'`). Only the valid-token path touched S3, so
+   403/400 tests passed while 200 failed. Fix: separate cache name
+   (`_s3_client`).
+7. **Mangum synthetic events need the full `requestContext.http`**
+   (incl. `sourceIp`) — the trimmed event raised `KeyError: 'sourceIp'`
+   inside `mangum/handlers/api_gateway.py`.
+
+## AgentCore — NOT deployed (blocked, reported to parent)
+
+- The AgentCore control-plane API (`bedrock-agentcore-control`) IS reachable
+  in us-east-1 and `ListAgentRuntimes` works (empty) — no account/region block.
+- Blocker is environmental: **no Docker on the build VM** and `apt-get`
+  crawls behind the proxy, so the standard `agentcore deploy` container-build
+  path is unavailable. Per instructions, did not grind on it.
+- Recommendation: run `daily_scan` as a plain Lambda + EventBridge Scheduler
+  instead — it is 100% deterministic (no LLM needed), cheaper and simpler.
+  Reserve AgentCore/Strands for photo-onboarding Task 1 when Bedrock vision
+  is actually wired (Phase 3). Awaiting parent decision before implementing.
+
+## Re-verify after any code change
+
+```
+python3 deploy/e2e_lambda.py   # initialize -> tools/list -> tools/call (via lambda:Invoke)
+python3 deploy/verify_presign.py  # presign 200/403/400
+```
+
+---
+
+## Deploy I details (original section follows)
 
 ## What was created
 
