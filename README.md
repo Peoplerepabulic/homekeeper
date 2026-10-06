@@ -10,18 +10,22 @@ HomeKeeper is a home-appliance manager built for the Alexa+ track of the
 model, maintenance schedule, warranty, and recall status — and tells you what needs
 attention before you have to ask.
 
-## Why a simulator?
+**Track fit:** the Alexa+ track asks for a self-hosted MCP server (spec 2025-11-25
+or later, Streamable HTTP) or a simulated Alexa+ experience — HomeKeeper is both.
+The backend is a native MCP server (FastMCP, protocol 2025-11-25, Streamable HTTP
+over API Gateway → Lambda); the frontend is a high-fidelity Echo Show web simulator
+for the demo video. Every card the simulator renders comes from live MCP tool calls.
 
-Alexa's developer toolchain (Alexa AI CLI) was not accessible from our account —
-setup requires assuming an Amazon-internal allowlist role, and `sts:AssumeRole` is
-denied with no self-serve access path. Rather than fake it, we built a
-high-fidelity **Echo Show web simulator** over a **100% real backend**: seven MCP
-tools on AWS Lambda + DynamoDB, with Amazon Bedrock for chat and vision. The
-simulator is labeled as simulated on screen; every card it renders comes from live
-MCP tool calls.
+## Why a simulator for the frontend?
 
-The backend speaks native MCP (Streamable HTTP), so the day Alexa+ opens its
-agentic APIs, these seven tools plug straight in — no rewrite.
+Alexa's add-on developer toolchain (Alexa AI CLI / Category SDK / MCP Toolkit) is
+partner-only with no self-serve access path — `sts:AssumeRole` against Amazon's
+internal tooling role is denied for general hackathon participants (confirmed via
+Devpost support by multiple participants, Sept 2026). The track rules explicitly
+allow a simulated Alexa+ experience in a web app, so that's what the demo uses.
+The MCP server itself is the real Alexa+ integration surface: the day add-on
+publishing opens up, these seven tools plug straight in — no rewrite. Packaging
+manifest: [`addon-package/addon.json`](addon-package/addon.json).
 
 ## Architecture
 
