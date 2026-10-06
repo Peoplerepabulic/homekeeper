@@ -2,92 +2,126 @@
 
 *Every appliance remembered. Every task on time.*
 
-HomeKeeper is a home appliance butler running on Alexa+. It remembers every
-appliance's model, maintenance schedule, warranty, and recall information —
-ask once and know exactly what to do, and get it done on the spot.
+**🎬 Live demo:** https://d250h79d4lokny.cloudfront.net/
+*(Simulated Alexa+ experience · Real MCP backend on AWS)*
+
+HomeKeeper is a home-appliance manager built for the Alexa+ track of the
+*Build, Ship, Shape: Amazon Developer Hackathon*. It remembers every appliance's
+model, maintenance schedule, warranty, and recall status — and tells you what needs
+attention before you have to ask.
+
+## Why a simulator?
+
+Alexa's developer toolchain (Alexa AI CLI) was not accessible from our account —
+setup requires assuming an Amazon-internal allowlist role, and `sts:AssumeRole` is
+denied with no self-serve access path. Rather than fake it, we built a
+high-fidelity **Echo Show web simulator** over a **100% real backend**: seven MCP
+tools on AWS Lambda + DynamoDB, with Amazon Bedrock for chat and vision. The
+simulator is labeled as simulated on screen; every card it renders comes from live
+MCP tool calls.
+
+The backend speaks native MCP (Streamable HTTP), so the day Alexa+ opens its
+agentic APIs, these seven tools plug straight in — no rewrite.
 
 ## Architecture
 
-The core decision is a **hot path / cold path split**, driven by Alexa+'s
-requirement that MCP round trips stay under 500 ms:
+The core decision is a **hot path / cold path split**:
 
-- **Hot path** (every user utterance): Alexa+ (Echo Show or web simulator) →
-  MCP Server (Lambda + Function URL, FastMCP stateless) → DynamoDB single
-  table. No LLM calls on this path; target p95 < 300 ms.
-- **Cold path** (async): phone upload page (S3) or EventBridge daily trigger →
-  AgentCore Runtime (Strands agent) → Bedrock Claude + CPSC recall data →
-  writes results back to DynamoDB.
+- **Hot path** (every demo interaction): Echo Show simulator → API Gateway →
+  Lambda (FastMCP, stateless) → DynamoDB single table. **No LLM on this path.**
+  Warm latency 13–76 ms; target < 500 ms.
+- **Cold path** (async): EventBridge daily 6:00 AM CT trigger → Lambda pulls the
+  live CPSC recall feed → results cached in DynamoDB for the next briefing.
+  Bedrock Claude handles free-ask chat (with MCP tool use) and nameplate vision.
 
-All AI work happens in the cold path and is pre-computed; the hot path only
-reads facts that are already there.
+All intelligence is either pre-computed (daily scan) or kept off the latency-critical
+path (chat/vision). The hot path only reads facts that are already there.
 
-## Design Decisions
+## Design decisions
 
-- **Hot/cold path split**: the only way to guarantee sub-500 ms responses is to
-  keep every LLM call off the request path. Latency-critical reads hit
-  DynamoDB; intelligence is computed ahead of time.
+- **Hot/cold split**: the only way to guarantee sub-500 ms responses is to keep
+  every LLM call off the request path. Latency-critical reads hit DynamoDB;
+  intelligence is computed ahead of time.
 - **Catalog as hallucination guard**: the model extracts brand and model from a
-  nameplate photo, but "how often to maintain it" always comes from the static
-  appliance catalog — never from the LLM.
-- **Alexa+ owns the conversation**: HomeKeeper returns structured ground truth
-  (facts plus a speakable summary); Alexa+ handles NLU, phrasing, and UI
-  rendering. Tools are coarse-grained and intent-based so Alexa+ picks the
-  right one.
+  nameplate photo, but maintenance schedules come from the static appliance catalog
+  — never from the LLM.
+- **Coarse-grained, intent-based tools**: each tool returns structured ground truth
+  (facts plus a speakable summary) so a conversational front end can render it
+  directly.
 
-## AWS Services
+## The 7 MCP tools
+
+| Tool | What it does |
+|---|---|
+| `get_home_briefing` | 5-item household briefing: overdue, due-soon, warranty-expiring, recalls |
+| `get_appliance` | Full record: brand/model, age, warranty, maintenance history, alerts |
+| `add_appliance` | Writes a new appliance from vision-extracted nameplate data |
+| `start_photo_onboarding` | Mints a one-time token + QR for phone photo upload |
+| `log_maintenance` | Records a completed maintenance task |
+| `get_reorder_options` | Consumable reorder options with Amazon links |
+| `report_issue` | Issue triage: warranty check + knowledge-base note + recommendation |
+
+## Demo flows
+
+1. **☀️ Morning Briefing** — one MCP call, five items, <500 ms. Tap any row for the
+   appliance detail card.
+2. **🔧 Issue Triage** — "the water heater is making a strange noise" → warranty
+   status, last maintenance, knowledge-base note, and a rule-based recommendation.
+3. **📷 Photo Onboarding** — QR code → phone photographs the nameplate → Bedrock
+   vision extracts brand/model/serial/manufacture-date with confidence scores →
+   pick a category → `add_appliance` writes it to DynamoDB. Verified end-to-end
+   with a real Sharp microwave nameplate (R-209KK, all fields ≥0.95 confidence).
+4. **Free ask** — Bedrock Claude calls the same MCP tools; answers from real records,
+   never invented.
+
+## AWS services
 
 | Service | Responsibility |
 |---|---|
-| Lambda + Function URL (+ Lambda Web Adapter) | Hosts the FastMCP server (hot path), provisioned concurrency to kill cold starts |
-| DynamoDB (single table) | All user state and pre-computed results (`USER#` partition keys) |
-| S3 + CloudFront | Hosts the phone upload page; stores nameplate photos |
-| AgentCore Runtime + Strands SDK | Runs the Home Analyst agent (cold path): onboarding, scans, briefings |
-| Bedrock (Claude) | Vision extraction of nameplates; structured reasoning |
-| EventBridge Scheduler | Daily full-home scan trigger |
-| SES (optional) | Weekly digest email (cut if time is short) |
+| Lambda (4 functions) | MCP server, chat/vision, presigned-URL issuer, daily scan |
+| API Gateway (HTTP API) | Browser-facing routes `/mcp*`, `/chat*`, `/presign*` with CORS |
+| DynamoDB (single table, `pk`/`sk`) | All state: appliances, tasks, upload tokens, recall cache |
+| Bedrock (Claude Sonnet 4.5) | Free-ask chat with tool use; nameplate vision extraction |
+| EventBridge Scheduler | Daily CPSC recall scan, 6:00 AM America/Chicago |
+| S3 + CloudFront | Static simulator + phone upload page; photo storage (7-day lifecycle) |
 
-## Setup & Run
+> Note: Lambda Function URLs returned account-wide 403s on this account
+> (`AccessDeniedException` with `AuthType: NONE`), so all browser traffic goes
+> through API Gateway. See `FRICTION_LOG.md`.
+
+## Setup & run
 
 ```bash
-cp .env.example .env          # fill in HOMEKEEPER_TABLE, DEMO_CLOCK, AWS_REGION
 pip install -r requirements.txt
-python src/server.py          # serves streamable HTTP on :8000
+python src/server.py          # serves MCP streamable HTTP on :8000
 
-# seed the demo household (dates relative to DEMO_CLOCK)
+# seed the demo household (dates relative to DEMO_CLOCK=2026-10-04)
 python src/seed.py --dry-run  # preview without writing
-python src/seed.py            # write to DynamoDB
-
-# Phase 0: expose locally and deploy the add-on
-# 1. cloudflared tunnel --url http://localhost:8000
-# 2. alexa-ai new mcp --name "HomeKeeper" --mcp-server-url <tunnel-url>  (Path A: Add-on Agent Skill recommended)
-# 3. Fill addon-package/addon.json (replace https://example.com placeholders
-#    with real privacy/terms URLs, e.g. GitHub Pages), then alexa-ai deploy
-# 4. Test in the Alexa+ web simulator
+python src/seed.py            # write to DynamoDB (AWS_PROFILE=alexa-ai-user)
 ```
 
-Note: Alexa+ refreshes tool metadata only on `alexa-ai deploy`, so every tool
-description change needs a redeploy before testing.
+Deploy notes (Lambda zips, API Gateway routes, EventBridge schedule):
+[`deploy/README.md`](deploy/README.md)
 
-## Test Results
+## Project layout
 
-| Tool | p50 | p95 | n |
-|---|---|---|---|
-| _TBD — Phase 1 latency harness_ | — | — | — |
+```
+src/        # MCP server, store, db, seed, catalog, scheduling
+web/        # Echo Show simulator (index.html), upload page, privacy/terms
+deploy/     # Lambda handlers (mcp, chat, presign, daily-scan) + deploy docs
+docs/       # demo video script (pitch), product feedback, design notes
+tests/      # unit tests
+```
 
-Target: p95 < 300 ms per tool (Alexa+ requires < 500 ms round trip).
+## Product feedback
 
-Nameplate OCR accuracy: _TBD — to be measured in Phase 2 with 5–6 real
-nameplate photos and reported honestly here._
-
-Dialogue tests: _TBD — 20 scripted utterances in Phase 3._
-
-## Roadmap
-
-- Native checkout via Amazon Pay for consumable reorders (today: purchase handoff links)
-- Multi-user auth (OAuth 2.1 + PKCE) — data model is multi-tenant from day one
-- Repair-service lead referral for out-of-warranty issues
-- Advanced subscription: multi-home, family sharing, warranty document archive
+Honest, per-tool feedback for the hackathon's required Product Feedback section —
+what worked, what broke, and what we'd change:
+[`docs/product-feedback.md`](docs/product-feedback.md) (source: [`FRICTION_LOG.md`](FRICTION_LOG.md))
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+Built for *Build, Ship, Shape: Amazon Developer Hackathon* — Alexa+ track.
