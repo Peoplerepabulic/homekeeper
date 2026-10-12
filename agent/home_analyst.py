@@ -3,9 +3,9 @@
 Runs on AgentCore Runtime (async, never on the Alexa+ request path). Handles:
 
   * Task 1 — photo onboarding: S3 nameplate photo -> Bedrock Claude vision
-    extraction -> catalog classification -> APPL#/TASK# rows -> briefing refresh.
+    extraction -> catalog classification -> APPL#/TASK# rows.
   * Task 2 — daily scan: recompute task urgency, match appliances against the
-    CPSC recall snapshot, write ALERT# rows, refresh BRIEFING#latest.
+    CPSC recall snapshot, write ALERT# rows (the hot path builds the briefing live).
   * Task 3 — weekly digest (stub; SES wiring is a Phase 3 stretch goal).
 
 Design notes
@@ -136,8 +136,7 @@ def dynamo_read(sk_prefix: str) -> str:
     """Read HomeKeeper state from the DynamoDB single table by sort-key prefix.
 
     Call when you need current state. Useful prefixes: "APPL#" (appliances),
-    "TASK#" (maintenance tasks), "ALERT#" (alerts), "BRIEFING#latest"
-    (precomputed briefing), "PROFILE" (household). Example: dynamo_read("APPL#").
+    "TASK#" (maintenance tasks), "ALERT#" (alerts), "PROFILE" (household). Example: dynamo_read("APPL#").
     Returns a JSON array of items.
     """
     return json.dumps(db.query_prefix(sk_prefix), default=str)
@@ -314,7 +313,7 @@ def onboard_from_photo(
     Pipeline: fetch image bytes from S3 -> Bedrock Claude vision extraction
     (brand/model/serial/mfg date, each with confidence) -> catalog
     classification -> APPL# + TASK# rows (maintenance plan from the catalog,
-    never from the model) -> BRIEFING#latest refresh.
+    never from the model).
 
     Quality control: fields with confidence < 0.8 set needs_confirmation;
     the hot path's get_appliance then asks "I read the model as X, correct?".
@@ -363,9 +362,8 @@ def onboard_from_photo(
         f"(confidence {confidence}, category {category}).",
     )
 
-    # 5. refresh the precomputed briefing
+    # 5. the hot path computes the briefing live; report its size
     briefing = store_mod.compute_briefing()
-    store_mod.save_briefing(briefing)
 
     return {
         "appliance_id": appl["appliance_id"],
@@ -388,7 +386,7 @@ def daily_scan(today: "date | None" = None, store_mod=store, cpsc_fn=None) -> di
     2. For each appliance with brand+model, search CPSC recalls; a recall is
        recorded only when brand AND model both match ("possibly affected",
        with the official cpsc.gov link). Already-recorded recalls are skipped.
-    3. Rewrite BRIEFING#latest so the hot path serves it with one GetItem.
+    3. Report the resulting briefing size (the hot path computes it live).
     """
     today = today or db.get_today()
     if cpsc_fn is None:
@@ -433,7 +431,6 @@ def daily_scan(today: "date | None" = None, store_mod=store, cpsc_fn=None) -> di
             alerts_created += 1
 
     briefing = store_mod.compute_briefing()
-    store_mod.save_briefing(briefing)
     store_mod.log_event(
         "daily_scan",
         f"tasks_updated={tasks_updated} alerts_created={alerts_created} "
@@ -474,10 +471,8 @@ Rules:
 - A CPSC recall is recorded only when BOTH brand and model match the recall
   text. Word alerts as "possibly affected" and always include the official
   cpsc.gov URL — never claim a specific unit IS recalled.
-- After photo onboarding or a daily scan, always rewrite BRIEFING#latest via
-  dynamo_write so the hot path serves fresh data with one read.
 - All writes go through dynamo_write with the documented key layout:
-  APPL#<id>, TASK#<applianceId>#<taskId>, ALERT#<alertId>, BRIEFING#latest,
+  APPL#<id>, TASK#<applianceId>#<taskId>, ALERT#<alertId>,
   EVENT#<timestamp>. The partition key is added automatically.
 """
 

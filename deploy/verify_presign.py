@@ -31,7 +31,7 @@ def mcp_call(method, params, rid):
                     "accept": "application/json, text/event-stream",
                     "host": MCP_HOST},
         "requestContext": {
-            "accountId": "955857822289",
+            "accountId": "123456789012",
             "apiId": "ikwwry36o6eftmfibyzymv5thy",
             "domainName": MCP_HOST,
             "domainPrefix": "ikwwry36o6eftmfibyzymv5thy0kplnb",

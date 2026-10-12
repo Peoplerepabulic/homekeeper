@@ -1,16 +1,14 @@
 """Repository layer for HomeKeeper's hot path.
 
 Design:
-  * When HOMEKEEPER_TABLE is set and DynamoDB answers, every read/write goes
-    to the real single table (via db.py).
-  * Otherwise -- env var unset, missing credentials, network failure -- the
-    store transparently falls back to an in-memory copy of the seed household
-    (seed.build_items()), so MCP Inspector and local tests run with zero
-    configuration. The fallback is one-way: once DynamoDB fails, the process
-    stays in local mode.
-  * BRIEFING#latest is owned by the cold path in DynamoDB mode (read as-is).
-    In local mode the briefing is recomputed from current state, so
-    log_maintenance/add_appliance are immediately visible when testing locally.
+  * HOMEKEEPER_TABLE set -> every read/write goes to DynamoDB (via db.py).
+    A DynamoDB failure raises StoreUnavailable; it never silently switches to
+    seed data, so a deployed Lambda can't serve or swallow fake state.
+  * HOMEKEEPER_TABLE unset -> in-memory copy of the seed household
+    (seed.build_items()), so MCP Inspector and tests run with zero setup.
+  * The briefing is computed live from one partition read on every call.
+    Writes (log_maintenance, add_appliance, reorders) show up immediately; the
+    cold path only contributes ALERT# rows (CPSC recalls).
 
 All business logic lives here (fuzzy matching, plan generation, triage), so
 it is unit-testable without fastmcp. server.py is a thin MCP wrapper.
@@ -31,6 +29,10 @@ CATALOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "catalog
 _catalog = None
 _backend = None  # "dynamo" | "local", resolved lazily
 _memory = None  # sk -> item, in-memory seed copy for local mode
+
+
+class StoreUnavailable(Exception):
+    """DynamoDB is configured but failed. Callers turn this into a clean error."""
 
 
 class ApplianceLookupError(Exception):
@@ -87,15 +89,19 @@ def _mem() -> dict:
 
 
 def _run(dynamo_fn, local_fn):
-    """Run dynamo_fn(); on any AWS failure, fall back to local_fn() for good."""
-    global _backend
+    """Dynamo mode: dynamo_fn() or StoreUnavailable. Local mode: local_fn()."""
     if _resolve_backend() == "dynamo":
         try:
             return dynamo_fn()
-        except Exception as exc:  # noqa: BLE001 - any AWS failure -> local mode
-            print(f"[store] DynamoDB unavailable, using local seed data: {exc}")
-            _backend = "local"
+        except Exception as exc:  # noqa: BLE001 - surface, never fake
+            print(f"[store] DynamoDB error: {type(exc).__name__}: {exc}")
+            raise StoreUnavailable(str(exc)) from exc
     return local_fn()
+
+
+def _all_items() -> list:
+    """Every row of the household in one round trip."""
+    return _run(lambda: db.query_all(), lambda: list(_mem().values()))
 
 
 def _all(prefix: str) -> list:
@@ -164,15 +170,8 @@ def save_alert(item: dict) -> dict:
     return _put(db.sk_alert(item["alert_id"]), item)
 
 
-def mark_alert_handled(alert_id: str) -> None:
-    alert = _get(db.sk_alert(alert_id))
-    if alert:
-        alert["reorder_arranged"] = True
-        _put(db.sk_alert(alert_id), alert)
-
-
 def log_event(event_type: str, detail: str) -> dict:
-    ts = f"{db.get_today().isoformat()}T{time.strftime('%H:%M:%S')}"
+    ts = f"{db.get_today().isoformat()}T{time.strftime('%H:%M:%S')}#{uuid.uuid4().hex[:6]}"
     return _put(db.sk_event(ts), {"entity": "EVENT", "event_type": event_type, "detail": detail})
 
 
@@ -220,7 +219,7 @@ ALIASES = {
 
 
 def _normalize(text: str) -> str:
-    text = text.lower().strip()
+    text = re.sub(r"[^a-z0-9/&\-\s]", " ", text.lower()).strip()
     text = re.sub(r"^(the|my|a|an)\s+", "", text)
     return re.sub(r"\s+", " ", text)
 
@@ -242,8 +241,36 @@ def _haystack(appl: dict) -> str:
     ]).lower()
 
 
-def find_appliances(name: str) -> list:
-    """Fuzzy-match a user phrase to appliances. Returns [] | [one] | [many]."""
+def _alias_categories(query: str) -> set:
+    """Categories named by any word or two-word phrase in the query."""
+    words = query.split()
+    grams = set(words) | {" ".join(words[i:i + 2]) for i in range(len(words) - 1)}
+    return {ALIASES[g] for g in grams if g in ALIASES}
+
+
+def _score(appl: dict, query: str, alias_cats: set) -> int:
+    """Category hit 3, brand/model hit 2, room hit 1."""
+    tokens = set(query.split())
+    cat = appl.get("category", "")
+    display = get_catalog().get(cat, {}).get("display_name", "").lower()
+    cat_hit = (
+        cat in alias_cats
+        or set(cat.split("_")) <= tokens
+        or (display and set(display.split()) <= tokens)
+    )
+    brand = (appl.get("brand") or "").lower()
+    model = re.sub(r"[^a-z0-9]", "", (appl.get("model") or "").lower())
+    flat = re.sub(r"[^a-z0-9]", "", query)
+    bm_hit = (brand and set(brand.split()) <= tokens) or (len(model) >= 4 and model in flat)
+    room_hit = (appl.get("room") or "").lower() in tokens
+    return 3 * bool(cat_hit) + 2 * bool(bm_hit) + bool(room_hit)
+
+
+def find_appliances(name: str, strict: bool = False) -> list:
+    """Fuzzy-match a user phrase to appliances. Returns [] | [one] | [many].
+
+    strict=True stops after the confident stages (id, category, score >= 2).
+    """
     query = _normalize(name)
     query = ALIASES.get(query, query)
     appliances = get_appliances()
@@ -256,11 +283,19 @@ def find_appliances(name: str) -> list:
     exact = [a for a in appliances if a.get("category") == query]
     if exact:
         return exact
-    # 3. substring both ways
+    # 3. weighted score: "kitchen fridge" -> the kitchen refrigerator only
+    alias_cats = _alias_categories(query)
+    scored = [(_score(a, query, alias_cats), a) for a in appliances]
+    best = max((sc for sc, _ in scored), default=0)
+    if best >= 2:
+        return [a for sc, a in scored if sc == best]
+    if strict:
+        return []
+    # 4. substring both ways
     sub = [a for a in appliances if query in _haystack(a) or _haystack(a) in query]
     if sub:
         return sub
-    # 4. token overlap (>= half the query tokens)
+    # 5. token overlap (>= half the query tokens)
     tokens = set(query.split())
     scored = []
     for a in appliances:
@@ -337,10 +372,13 @@ def device_age(appl: dict, today: date | None = None) -> str:
 def _compute_briefing(time_range_days: int = 30) -> dict:
     """Build the briefing from current state (local mode; mirrors seed logic)."""
     today = db.get_today()
-    appliances = {a["appliance_id"]: a for a in get_appliances()}
+    rows = _all_items()
+    appliances = {r["appliance_id"]: r for r in rows if r["sk"].startswith("APPL#")}
+    tasks = [r for r in rows if r["sk"].startswith("TASK#")]
+    alerts = [r for r in rows if r["sk"].startswith("ALERT#") and not r.get("read")]
     items: list = []
 
-    for t in get_tasks():
+    for t in tasks:
         due = date.fromisoformat(t["next_due"])
         u = urgency(due, today)
         # Demo-deterministic: only overdue/due_soon maintenance surface here,
@@ -353,13 +391,17 @@ def _compute_briefing(time_range_days: int = 30) -> dict:
                 if u == "overdue"
                 else ("due today" if days_out == 0 else f"due in {days_out} days")
             )
+            ordered = t.get("reorder_arranged_on")
             items.append({
                 "type": "maintenance",
                 "appliance": _label(a),
+                "appliance_id": t["appliance_id"],
                 "task": t["task"],
                 "due": t["next_due"],
                 "urgency": u,
-                "detail": f"{t['task']} — {when}.",
+                "reorder_arranged": bool(ordered),
+                "detail": f"{t['task']} — {when}."
+                + (f" Replacement ordered {ordered}." if ordered else ""),
             })
 
     for a in appliances.values():
@@ -368,18 +410,21 @@ def _compute_briefing(time_range_days: int = 30) -> dict:
             items.append({
                 "type": "warranty",
                 "appliance": _label(a),
+                "appliance_id": a["appliance_id"],
                 "task": "Warranty expiring",
                 "due": w["warranty_end"],
                 "urgency": "due_soon",
                 "detail": f"Manufacturer warranty expires in {w['days_left']} days.",
             })
 
-    for al in get_alerts(unread_only=True):
+    for al in alerts:
         if al.get("kind") == "recall":
             a = appliances.get(al.get("appliance_id"), {})
             items.append({
                 "type": "recall",
                 "appliance": _label(a),
+                "appliance_id": al.get("appliance_id"),
+                "recall_date": al.get("recall_date"),
                 "task": "Safety recall",
                 "due": None,
                 "urgency": "high",
@@ -388,7 +433,9 @@ def _compute_briefing(time_range_days: int = 30) -> dict:
             })
 
     order = {"overdue": 0, "high": 1, "due_soon": 2, "ok": 3}
-    items.sort(key=lambda i: (order.get(i["urgency"], 3), i["due"] or ""))
+    items.sort(key=lambda i: (
+        order.get(i["urgency"], 3), bool(i.get("reorder_arranged")), i["due"] or ""
+    ))
 
     n_over = sum(1 for i in items if i["urgency"] == "overdue")
     n_soon = sum(1 for i in items if i["urgency"] == "due_soon" and i["type"] == "maintenance")
@@ -411,25 +458,12 @@ def _compute_briefing(time_range_days: int = 30) -> dict:
     return {"summary": summary, "items": items}
 
 
-def get_briefing(time_range_days: int = 30) -> dict | None:
-    """BRIEFING#latest from DynamoDB; recomputed live in local mode."""
-    if is_local():
-        return _compute_briefing(time_range_days)
-    item = _get(db.sk_briefing())
-    if not item:
-        return None
-    return {"summary": item.get("summary", ""), "items": item.get("items", [])}
-
-
-def compute_briefing(time_range_days: int = 30) -> dict:
-    """Public: build the briefing from current state (used by the cold path)."""
+def get_briefing(time_range_days: int = 30) -> dict:
+    """Live briefing from current state (one partition read, no LLM)."""
     return _compute_briefing(time_range_days)
 
 
-def save_briefing(briefing: dict) -> dict:
-    """Write BRIEFING#latest. Owned by the cold path (daily scan / onboarding)."""
-    item = {"entity": "BRIEFING", **briefing}
-    return _put(db.sk_briefing(), item)
+compute_briefing = get_briefing
 
 
 # --- mutations ------------------------------------------------------------------
@@ -545,6 +579,7 @@ def log_maintenance(
         item["last_done"] = done_on.isoformat()
         item["next_due"] = next_due_date(done_on, item["interval_days"]).isoformat()
         item["snoozed"] = False
+        item.pop("reorder_arranged_on", None)
     else:  # snooze: push the current due date out 30 days
         item["next_due"] = (
             date.fromisoformat(item["next_due"]) + timedelta(days=30)
@@ -580,7 +615,7 @@ def get_reorder_options(query: str) -> dict:
         })
 
     # appliance-scoped: fuzzy-match appliances, then list their consumables
-    for appl in find_appliances(q):
+    for appl in find_appliances(q, strict=True):
         matched_appliances.append(appl)
         for c in catalog[appl["category"]]["consumables"]:
             _add_option(appl["appliance_id"], c["name"], c["search_keywords"])
@@ -606,13 +641,43 @@ def get_reorder_options(query: str) -> dict:
     for _, name, keywords in scored:
         _add_option(None, name, keywords)
 
-    # mark related reminders handled so the user is not nagged again
-    for appl in matched_appliances:
-        for al in get_alerts():
-            if al.get("appliance_id") == appl["appliance_id"] and not al.get("read"):
-                mark_alert_handled(al["alert_id"])
+    # Mark the matching maintenance task "replacement ordered" -- only when
+    # exactly one appliance is meant; otherwise the caller asks which one.
+    marked = []
+    if len(matched_appliances) == 1 and options:
+        appl = matched_appliances[0]
+        task = _task_for_consumable(appl["appliance_id"], options[0]["consumable"])
+        if task:
+            task["reorder_arranged_on"] = db.get_today().isoformat()
+            save_task(task)
+            marked.append(task["task"])
+            log_event("reorder", f"{options[0]['consumable']} for {_label(appl)}.")
+    return {"appliances": matched_appliances, "options": options, "marked_tasks": marked}
 
-    return {"appliances": matched_appliances, "options": options}
+
+_STOP = {"replace", "replacement", "new", "the", "a", "and", "of", "for", "unit"}
+
+
+def _stems(text: str) -> set:
+    out = set()
+    for w in _normalize(text).split():
+        if w.endswith("ies"):
+            w = w[:-3] + "y"
+        elif w.endswith("s") and len(w) > 3:
+            w = w[:-1]
+        out.add(w)
+    return out - _STOP
+
+
+def _task_for_consumable(appliance_id: str, consumable: str):
+    """The appliance's task that consumes this item ("Replace water filter")."""
+    want = _stems(consumable)
+    best, best_n = None, 0
+    for t in get_tasks(appliance_id):
+        n = len(want & _stems(t["task"]))
+        if n > best_n:
+            best, best_n = t, n
+    return best
 
 
 def get_issue_report(appliance: str, symptom: str) -> dict:
@@ -670,3 +735,18 @@ def _match_triage(category: str, symptom: str) -> dict | None:
         if score > best_score:
             best, best_score = ({"symptom": key, **val}), score
     return best
+
+
+# --- demo reset -------------------------------------------------------------------
+
+
+def reset_demo() -> int:
+    """Restore the seed household (DynamoDB or local). Returns rows written."""
+    import seed
+
+    items = seed.build_items()
+    if is_local():
+        global _memory
+        _memory = {it["sk"]: dict(it) for it in items}
+        return len(items)
+    return _run(lambda: db.replace_partition(items), lambda: 0)

@@ -1,8 +1,9 @@
 """Seed a realistic demo household into DynamoDB.
 
 Dates are computed relative to DEMO_CLOCK (via db.get_today()), so the demo
-day ALWAYS shows: 2 items due soon, 1 overdue, 1 warranty expiring soon,
-1 recall -- regardless of when you run it.
+day ALWAYS shows: 2 items due soon, 1 overdue, 1 warranty expiring soon --
+plus 1 real CPSC recall once src/demo_recall.json exists
+(see deploy/find_demo_recall.py).
 
 Usage:
     python src/seed.py --dry-run   # print items as JSON without writing
@@ -32,7 +33,7 @@ APPLIANCES = [
     ("purifier-kitchen", "water_purifier", "iSpring", "RCC7", "kitchen", -500, 2),
     ("heater-garage", "water_heater", "Rheem", "XE50M12EC45U1", "garage", None, 6),  # warranty ends T+20
     ("hvac-main", "hvac", "Carrier", "24ACC636N003", "attic", -700, 10),
-    ("hvac-upstairs", "hvac", "Carrier", "24ACC636N003", "attic", -700, 10),
+    ("hvac-upstairs", "hvac", "Carrier", "24ACC636N003", "upstairs", -700, 10),
     ("smoke-hallway", "smoke_alarm", "First Alert", "SA511CN2-3ST", "hallway", -1000, 10),
     ("smoke-bedroom", "smoke_alarm", "First Alert", "SA511CN2-3ST", "bedroom", -500, 10),
 ]
@@ -67,6 +68,17 @@ TASKS = [
 ]
 
 
+DEMO_RECALL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo_recall.json")
+
+
+def load_demo_recall() -> dict | None:
+    """Real CPSC recall snapshot for the demo fridge, or None if not generated yet."""
+    if not os.path.exists(DEMO_RECALL_PATH):
+        return None
+    with open(DEMO_RECALL_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def build_items() -> list[dict]:
     today = db.get_today()
     items: list[dict] = []
@@ -78,15 +90,16 @@ def build_items() -> list[dict]:
         "timezone": "America/Chicago",
     })
 
-    appl_lookup = {}
+    recall = load_demo_recall()
     for aid, category, brand, model, room, install_off, warranty_years in APPLIANCES:
+        if aid == "fridge-kitchen" and recall:
+            brand, model = recall["brand"], recall["model"]
         # Water heater: install date engineered so warranty ends exactly T+20.
         if aid == "heater-garage":
             install_date = today + timedelta(days=20 - warranty_years * 365)
         else:
             install_date = today + timedelta(days=install_off)
         warranty_end = install_date + timedelta(days=warranty_years * 365)
-        appl_lookup[aid] = {"category": category, "brand": brand, "model": model, "room": room}
         items.append({
             "sk": db.sk_appliance(aid),
             "entity": "APPL",
@@ -101,7 +114,6 @@ def build_items() -> list[dict]:
             "source": "seed",
         })
 
-    briefing_items = []
     for aid, task, interval, last_done_off in TASKS:
         last_done = today + timedelta(days=last_done_off)
         due = next_due_date(last_done, interval)
@@ -118,61 +130,27 @@ def build_items() -> list[dict]:
             "urgency": u,
             "snoozed": False,
         })
-        if u in ("overdue", "due_soon"):
-            a = appl_lookup[aid]
-            briefing_items.append({
-                "type": "maintenance",
-                "appliance": f"{a['category'].replace('_', ' ').title()} ({a['room']})",
-                "task": task,
-                "due": due.isoformat(),
-                "urgency": u,
-            })
 
-    # Warranty expiring soon: water heater warranty ends T+20.
-    heater = appl_lookup["heater-garage"]
-    briefing_items.append({
-        "type": "warranty",
-        "appliance": f"Water heater ({heater['room']})",
-        "task": "Warranty expiring",
-        "due": (today + timedelta(days=20)).isoformat(),
-        "urgency": "due_soon",
-        "detail": "Manufacturer warranty expires in 20 days.",
-    })
-
-    # One recall alert on the kitchen fridge (brand+model matched, like CPSC).
-    items.append({
-        "sk": db.sk_alert("recall-fridge-001"),
-        "entity": "ALERT",
-        "alert_id": "recall-fridge-001",
-        "appliance_id": "fridge-kitchen",
-        "kind": "recall",
-        "severity": "high",
-        "title": "Possible CPSC safety recall affecting this model",
-        "source_url": "https://www.saferproducts.gov/",
-        "read": False,
-    })
-    briefing_items.append({
-        "type": "recall",
-        "appliance": "Refrigerator (kitchen)",
-        "task": "Safety recall",
-        "due": None,
-        "urgency": "high",
-        "detail": "Possible CPSC recall affecting this model. See official recall link.",
-    })
-
-    # Sort: overdue first, then by due date. Mirrors the Phase 0 hardcoded briefing.
-    order = {"overdue": 0, "high": 1, "due_soon": 2}
-    briefing_items.sort(key=lambda i: (order.get(i["urgency"], 3), i["due"] or ""))
-    items.append({
-        "sk": db.sk_briefing(),
-        "entity": "BRIEFING",
-        "generated_at": today.isoformat(),
-        "summary": (
-            "You have 5 items needing attention: 1 overdue maintenance, "
-            "2 due soon, 1 warranty expiring, and 1 safety recall."
-        ),
-        "items": briefing_items,
-    })
+    # Recall: a REAL CPSC record snapshot (src/demo_recall.json, produced by
+    # deploy/find_demo_recall.py). The kitchen fridge carries the brand/model
+    # that daily_scan's match_recalls() finds in that record, so the live
+    # cold path re-derives the same alert. No file -> no recall (never fake).
+    recall = load_demo_recall()
+    if recall:
+        items.append({
+            "sk": db.sk_alert(f"recall-{recall['recall_id']}"),
+            "entity": "ALERT",
+            "alert_id": f"recall-{recall['recall_id']}",
+            "recall_id": str(recall["recall_id"]),
+            "appliance_id": "fridge-kitchen",
+            "kind": "recall",
+            "severity": "high",
+            "title": recall["title"],
+            "source_url": recall["url"],
+            "recall_date": recall.get("recall_date"),
+            "hazard": recall.get("hazard", ""),
+            "read": False,
+        })
 
     # One sample event log entry (cross-session memory evidence).
     items.append({
@@ -196,10 +174,11 @@ def main() -> None:
         print(json.dumps(items, indent=2, default=str))
         return
 
-    for item in items:
-        sk = item.pop("sk")
-        db.put_item(sk, item, user_id=args.user)
-    print(f"Seeded {len(items)} items for user '{args.user}' "
+    n = db.replace_partition(items, user_id=args.user)
+    if not load_demo_recall():
+        print("WARNING: src/demo_recall.json missing -> demo has no recall. "
+              "Run deploy/find_demo_recall.py first.")
+    print(f"Seeded {n} items (old rows cleared) for user '{args.user}' "
           f"(table={db.TABLE_NAME}, demo_clock={db.get_today().isoformat()}).")
 
 

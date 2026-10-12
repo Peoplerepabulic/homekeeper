@@ -6,8 +6,8 @@ independent (no session affinity), which is what Lambda needs.
 
 Packaging layout (zip root):
     lambda_handler.py   <- this file (Lambda handler: lambda_handler.handler)
-    server.py, store.py, db.py, scheduling.py, seed.py
-    catalog.json
+    server.py, tools.py, store.py, db.py, scheduling.py, seed.py
+    catalog.json, demo_recall.json
     <fastmcp, mangum and their deps>
 """
 
@@ -28,4 +28,12 @@ _asgi_app = mcp.http_app(
 # requires it -- the StreamableHTTP session manager (task group) is only
 # created inside the lifespan; with lifespan="off" every request fails with
 # "Task group is not initialized".
-handler = Mangum(_asgi_app, lifespan="auto")
+_mangum = Mangum(_asgi_app, lifespan="auto")
+
+
+def handler(event, context):
+    """API Gateway events go to MCP; {"warmup": true} (Scheduler, every 5 min)
+    just keeps this container warm so judges never hit a ~2 s cold start."""
+    if isinstance(event, dict) and event.get("warmup"):
+        return {"ok": True}
+    return _mangum(event, context)

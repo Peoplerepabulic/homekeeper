@@ -9,6 +9,7 @@ from datetime import date, timedelta
 import pytest
 
 import store
+import tools
 from store import ApplianceLookupError
 
 T = date(2026, 10, 4)
@@ -31,13 +32,62 @@ def test_fallback_uses_seed_data_when_no_table():
     assert len(appliances) == 8  # the seeded demo household
 
 
-def test_fallback_triggers_on_dynamo_failure(monkeypatch):
-    # HOMEKEEPER_TABLE set but DynamoDB unreachable -> one-way local fallback.
+def test_dynamo_failure_raises_instead_of_faking(monkeypatch):
     monkeypatch.setenv("HOMEKEEPER_TABLE", "homekeeper")
-    store._backend = None  # force re-resolution
-    assert store.is_local() is False
-    assert len(store.get_appliances()) == 8  # fell back, no exception
-    assert store.is_local() is True  # stays local afterwards
+    store._backend = None
+
+    def boom(*a, **k):
+        raise RuntimeError("throttled")
+
+    monkeypatch.setattr(store.db, "query_prefix", boom)
+    monkeypatch.setattr(store.db, "query_all", boom)
+    with pytest.raises(store.StoreUnavailable):
+        store.get_appliances()
+    assert store.is_local() is False  # never silently switches to seed data
+    out = tools.get_home_briefing()
+    assert out["status"] == "error" and "items" not in out
+
+
+class FakeTable:
+    """Minimal in-memory stand-in for the db module's DynamoDB calls."""
+
+    def __init__(self, items):
+        self.rows = {it["sk"]: dict(it) for it in items}
+
+    def put_item(self, sk, attrs, user_id=None):
+        self.rows[sk] = {"sk": sk, **attrs}
+        return self.rows[sk]
+
+    def get_item(self, sk, user_id=None):
+        return self.rows.get(sk)
+
+    def query_prefix(self, prefix, user_id=None):
+        return [dict(v) for k, v in self.rows.items() if k.startswith(prefix)]
+
+    def query_all(self, user_id=None):
+        return [dict(v) for v in self.rows.values()]
+
+
+def test_dynamo_briefing_is_live_after_write(monkeypatch):
+    import seed
+
+    fake = FakeTable(seed.build_items())
+    monkeypatch.setenv("HOMEKEEPER_TABLE", "homekeeper")
+    store._backend = None
+    for name in ("put_item", "get_item", "query_prefix", "query_all"):
+        monkeypatch.setattr(store.db, name, getattr(fake, name))
+    # DynamoDB returns numbers as Decimal; next_due_date must cope.
+    from decimal import Decimal
+
+    for row in fake.rows.values():
+        if "interval_days" in row:
+            row["interval_days"] = Decimal(row["interval_days"])
+
+    before = store.get_briefing()["items"]
+    assert any(i["urgency"] == "overdue" for i in before)
+    store.log_maintenance("hvac-main", "air filter", "done")
+    after = store.get_briefing()["items"]
+    assert not any(i["urgency"] == "overdue" for i in after)
 
 
 # --- fuzzy matching -------------------------------------------------------------
@@ -61,6 +111,15 @@ def test_phrase_water_heater():
 def test_exact_appliance_id():
     matches = store.find_appliances("hvac-main")
     assert [m["appliance_id"] for m in matches] == ["hvac-main"]
+
+
+def test_kitchen_fridge_resolves_to_one():
+    assert [m["appliance_id"] for m in store.find_appliances("kitchen fridge")] == ["fridge-kitchen"]
+
+
+def test_room_alone_stays_ambiguous():
+    ids = {m["appliance_id"] for m in store.find_appliances("kitchen")}
+    assert ids == {"fridge-kitchen", "purifier-kitchen"}
 
 
 def test_no_match_returns_empty():
@@ -141,16 +200,27 @@ def test_reorder_options_url_format():
     assert "refrigerator+water+filter+cartridge" in res["options"][0]["amazon_url"]
 
 
-def test_reorder_marks_alert_handled():
-    alert_before = next(
-        a for a in store.get_alerts() if a["alert_id"] == "recall-fridge-001"
-    )
-    assert not alert_before.get("reorder_arranged")
-    store.get_reorder_options("fridge")
-    alert_after = next(
-        a for a in store.get_alerts() if a["alert_id"] == "recall-fridge-001"
-    )
-    assert alert_after.get("reorder_arranged") is True
+def test_reorder_marks_matching_task_and_briefing_shows_it():
+    res = store.get_reorder_options("purifier cartridge")
+    assert res["marked_tasks"] == ["Replace filter cartridge"]
+    item = next(i for i in store.get_briefing()["items"] if i["task"] == "Replace filter cartridge")
+    assert item["reorder_arranged"] is True and "Replacement ordered" in item["detail"]
+    store.log_maintenance("purifier-kitchen", "filter cartridge", "done")
+    task = next(t for t in store.get_tasks("purifier-kitchen") if t["task"] == "Replace filter cartridge")
+    assert "reorder_arranged_on" not in task
+
+
+def test_reorder_ambiguous_asks_which_and_marks_nothing():
+    out = tools.get_reorder_options("fridge filter")
+    assert out["status"] == "needs_clarification"
+    assert {c["appliance_id"] for c in out["candidates"]} == {"fridge-kitchen", "fridge-garage"}
+    assert out["marked_tasks"] == []
+
+
+def test_recall_alerts_untouched_by_reorder():
+    before = [(a["alert_id"], a.get("read")) for a in store.get_alerts()]
+    store.get_reorder_options("kitchen fridge filter")
+    assert [(a["alert_id"], a.get("read")) for a in store.get_alerts()] == before
 
 
 def test_reorder_no_match():

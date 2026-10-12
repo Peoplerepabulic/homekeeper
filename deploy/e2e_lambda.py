@@ -29,7 +29,7 @@ def invoke(method, params, rid, timeout_note=""):
             "host": HOST,
         },
         "requestContext": {
-            "accountId": "955857822289",
+            "accountId": "123456789012",
             "apiId": "ikwwry36o6eftmfibyzymv5thy",
             "domainName": HOST,
             "domainPrefix": "ikwwry36o6eftmfibyzymv5thy0kplnb",

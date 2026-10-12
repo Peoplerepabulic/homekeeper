@@ -1,7 +1,13 @@
+> **Build journal.** This file records how each piece was deployed, in order,
+> including approaches that were later replaced. Current topology: browser ->
+> API Gateway HTTP API (`/mcp`, `/chat`, `/presign`) -> Lambda; Function URLs
+> were abandoned (account-wide 403, see FRICTION_LOG.md). Hardening and ops
+> commands: [HARDENING.md](HARDENING.md).
+
 # AWS Deploy I — DynamoDB table + Lambda MCP server (2026-10-04)
 
 Region: `us-east-1`. Profile: `alexa-ai-user` (IAM user `alexa-ai-tools`,
-account 955857822289). All commands below need
+account <ACCOUNT_ID>). All commands below need
 `AWS_PROFILE=alexa-ai-user AWS_REGION=us-east-1`.
 For CloudFront/global calls add `--cli-read-timeout 300` (the VM proxy makes
 the default 60 s read timeout flaky; with 300 s the calls succeed in ~2 s).
@@ -61,8 +67,8 @@ parse the first SSE `data:` line.
 |---|---|
 | Lambda function | `homekeeper-chat` — python3.12, 512 MB, 60 s, x86_64 (`deploy/chat_lambda.py`) |
 | Function URL | `https://g3smvyukhw25n2fauqdcx3pq7a0nmjxv.lambda-url.us-east-1.on.aws/` (auth `NONE`) |
-| IAM role | `homekeeper-chat-role` — `AWSLambdaBasicExecutionRole` + inline: `dynamodb:GetItem/PutItem/Query/UpdateItem` on `homekeeper` only; `s3:GetObject` on `homekeeper-uploads-955857822289/uploads/*`; `bedrock:InvokeModel` on the Sonnet 4.5 foundation-model ARNs (us-east-1/2, us-west-2) + the `us.` inference-profile ARN |
-| Env vars | `HOMEKEEPER_TABLE=homekeeper`, `DEMO_CLOCK=2026-10-04`, `UPLOADS_BUCKET=homekeeper-uploads-955857822289`, `DEMO_USER_ID=demo-household-1` |
+| IAM role | `homekeeper-chat-role` — `AWSLambdaBasicExecutionRole` + inline: `dynamodb:GetItem/PutItem/Query/UpdateItem` on `homekeeper` only; `s3:GetObject` on `homekeeper-uploads-<ACCOUNT_ID>/uploads/*`; `bedrock:InvokeModel` on the Sonnet 4.5 foundation-model ARNs (us-east-1/2, us-west-2) + the `us.` inference-profile ARN |
+| Env vars | `HOMEKEEPER_TABLE=homekeeper`, `DEMO_CLOCK=2026-10-04`, `UPLOADS_BUCKET=homekeeper-uploads-<ACCOUNT_ID>`, `DEMO_USER_ID=demo-household-1` |
 | Model | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` (newest Sonnet in us-east-1 per `bedrock ListFoundationModels`; the bare foundation-model id rejects on-demand invocation, so the `us.` inference-profile id is used) |
 
 ## Actions (POST JSON; CORS `*`, OPTIONS handled in-code like presign_lambda)
@@ -185,15 +191,15 @@ are correct: seed data is already current and the demo recall alert exists
 
 | Resource | Name / value |
 |---|---|
-| S3 bucket (web) | `homekeeper-web-955857822289` — policy allows only the CloudFront OAC |
+| S3 bucket (web) | `homekeeper-web-<ACCOUNT_ID>` — policy allows only the CloudFront OAC |
 | CloudFront OAC | `EAZWT4H1DWNWL` |
 | CloudFront distribution | `E2WW46N7SQVZRL` → `https://d250h79d4lokny.cloudfront.net/` (Deployed; DefaultRootObject `upload.html`; PriceClass_100; CachingDisabled so demo edits show immediately) |
 | Web files | `web/index.html` (demo console placeholder), `web/upload.html` (wired to the presign endpoint) |
-| S3 bucket (uploads) | `homekeeper-uploads-955857822289` — CORS allows PUT from the CloudFront origin only; lifecycle expires `uploads/*` after 7 days |
+| S3 bucket (uploads) | `homekeeper-uploads-<ACCOUNT_ID>` — CORS allows PUT from the CloudFront origin only; lifecycle expires `uploads/*` after 7 days |
 | Lambda function | `homekeeper-presign` — python3.12, 256 MB, 15 s timeout (`deploy/presign_lambda.py`) |
 | Function URL | `https://4y52ctpkwpgzyf73545z4tw4li0ahghj.lambda-url.us-east-1.on.aws/` (auth `NONE`; the UPLOAD# token is the auth) |
-| IAM role | `homekeeper-presign-role` — `AWSLambdaBasicExecutionRole` + inline: `dynamodb:GetItem` on `homekeeper`, `s3:PutObject` on `homekeeper-uploads-955857822289/uploads/*` |
-| Env vars | `HOMEKEEPER_TABLE=homekeeper`, `UPLOADS_BUCKET=homekeeper-uploads-955857822289`, `DEMO_USER_ID=demo-household-1` |
+| IAM role | `homekeeper-presign-role` — `AWSLambdaBasicExecutionRole` + inline: `dynamodb:GetItem` on `homekeeper`, `s3:PutObject` on `homekeeper-uploads-<ACCOUNT_ID>/uploads/*` |
+| Env vars | `HOMEKEEPER_TABLE=homekeeper`, `UPLOADS_BUCKET=homekeeper-uploads-<ACCOUNT_ID>`, `DEMO_USER_ID=demo-household-1` |
 
 ## Presign flow
 

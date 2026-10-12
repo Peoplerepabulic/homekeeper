@@ -6,8 +6,11 @@ DUE_SOON_DAYS = 7
 
 
 def next_due_date(last_done: date, interval_days: int) -> date:
-    """Next due date = last completion + maintenance interval."""
-    return last_done + timedelta(days=interval_days)
+    """Next due date = last completion + maintenance interval.
+
+    int() because DynamoDB returns numbers as Decimal, which timedelta rejects.
+    """
+    return last_done + timedelta(days=int(interval_days))
 
 
 def urgency(due_date: date, today: date) -> str:

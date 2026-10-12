@@ -9,10 +9,11 @@ Lambda-specific piece is the CPSC caching wrapper: the full CPSC dump is
 Zip layout (repo structure preserved):
     daily_scan_lambda.py          <- this file, handler = daily_scan_lambda.handler
     agent/home_analyst.py
-    src/db.py src/store.py src/scheduling.py src/catalog.json
+    src/db.py src/store.py src/scheduling.py src/seed.py
+    src/catalog.json src/demo_recall.json
     requests/  (only third-party dep; boto3 comes with the runtime)
 
-Env: HOMEKEEPER_TABLE=homekeeper, DEMO_CLOCK=2026-10-04
+Env: HOMEKEEPER_TABLE=homekeeper, DEMO_CLOCK=2026-10-04, RESEED_ON_SCAN=1
 """
 
 import json
@@ -51,6 +52,12 @@ def _cached_cpsc_fn(brand: str, model: str) -> list:
 
 
 def handler(event, context):
-    """EventBridge Scheduler target. `today` comes from DEMO_CLOCK via db."""
+    """EventBridge Scheduler target. `today` comes from DEMO_CLOCK via db.
+
+    RESEED_ON_SCAN=1 restores the shared demo household first, so whatever
+    judges changed yesterday is undone before the morning briefing.
+    """
+    reseeded = home_analyst.store.reset_demo() if os.environ.get("RESEED_ON_SCAN") == "1" else 0
     result = home_analyst.daily_scan(cpsc_fn=_cached_cpsc_fn)
+    result["reseeded_rows"] = reseeded
     return {"statusCode": 200, "body": json.dumps(result, default=str)}

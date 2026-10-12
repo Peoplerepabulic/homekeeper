@@ -36,6 +36,10 @@
     border:1px solid rgba(255,180,40,.25); border-radius:999px;
     padding:6px 14px; margin:0 auto 12px; max-width:100%;}
   #simlabel .dot{width:8px;height:8px;border-radius:50%;background:#ffd479;flex:none}
+  #resetDemo{font:inherit; color:inherit; background:none; border:0; padding:0 0 0 6px;
+    margin-left:2px; border-left:1px solid rgba(255,180,40,.35); cursor:pointer;
+    text-decoration:underline; text-underline-offset:2px; opacity:.85;}
+  #resetDemo:hover, #resetDemo:focus-visible{opacity:1; outline:none;}
   /* thread */
   #thread{flex:1; display:flex; flex-direction:column; gap:12px; padding:6px 2px 12px;
           overflow-y:auto;}
@@ -123,7 +127,7 @@
 <body>
 <div id="show">
   <div id="lightbar"></div>
-  <div id="simlabel"><span class="dot"></span><span>Simulated Alexa+ experience &middot; Real MCP backend on AWS &middot; Demo household</span></div>
+  <div id="simlabel"><span class="dot"></span><span>Simulated Alexa+ experience &middot; Real MCP backend on AWS &middot; Demo household</span><button id="resetDemo" type="button" title="Restore the demo household to its starting state">Reset</button></div>
   <div id="thread" aria-live="polite"></div>
   <div id="demobar">
     <button class="btn" data-demo="briefing">☀️ Morning Briefing</button>
@@ -255,7 +259,7 @@ function briefingCard(data, ms, source){
   h += '<div class="note">'+esc(data.summary||"")+'</div>';
   items.forEach(function(it, i){
     var urg = it.urgency||"ok";
-    h += '<div class="brow tap" data-appl="'+esc(it.appliance||"")+'">'
+    h += '<div class="brow tap" data-appl="'+esc(it.appliance_id||it.appliance||"")+'">'
       + '<span class="ic">'+(TYPE_ICON[it.type]||"📌")+'</span>'
       + '<span class="tx"><span class="t1">'+esc(it.appliance||"")+' — '+esc(it.task||"")+'</span>'
       + '<span class="t2">'+esc(it.detail||"")+'<br>Due: '+esc(relDate(it.due))+'</span></span>'
@@ -450,6 +454,14 @@ function chatPost(body){
       return res.json();
     });
 }
+document.getElementById("resetDemo").addEventListener("click", function(){
+  if(!CHAT_URL){ addError("Reset needs the chat service."); return; }
+  chatPost({action:"reset_demo"}).then(function(r){
+    addAlexa("Demo household restored to its starting state.", false);
+  }).catch(function(e){
+    addError(/429/.test(String(e)) ? "A reset just ran. Try again in a few seconds." : "Reset failed: "+e.message);
+  });
+});
 function demoPhoto(){
   addUser("Alexa, I want to add a new appliance by photo.");
   thinking();

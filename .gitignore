@@ -14,3 +14,7 @@ docker/dynamodb-data/
 .idea/
 .vscode/
 .pytest_cache/
+
+# Build artifacts
+deploy/*.zip
+package/

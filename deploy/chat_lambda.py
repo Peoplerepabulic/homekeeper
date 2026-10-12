@@ -1,13 +1,15 @@
 """Chat + nameplate OCR endpoint for HomeKeeper (Deploy IV).
 
-Function: `homekeeper-chat` (python3.12, 512MB, 60s). Function URL, auth NONE.
+Function: `homekeeper-chat` (python3.12, 512MB, 60s), behind API Gateway
+(`/chat`, throttled -- see deploy/HARDENING.md). Zip needs src/tools.py,
+src/seed.py and src/demo_recall.json alongside the other src/ modules.
 
 POST JSON body, three actions:
   {"action": "chat", "message": "...", "history": [{"role","text"}...]}
       -> {"reply": "...", "tool_calls": [{"name": ..., "result": {...}}]}
       Bedrock Converse with all 7 MCP tools defined; tool calls execute
-      server-side by importing src/store.py directly (no HTTP hop to the
-      MCP Lambda). Up to 5 tool-loop iterations. The FULL tool result (parsed
+      server-side through src/tools.py -- the same functions the MCP server
+      registers, so chat and MCP return identical shapes. Up to 5 tool-loop iterations. The FULL tool result (parsed
       JSON) is included per call so the web frontend can render briefing,
       reorder, and triage cards from them.
   {"action": "extract_nameplate", "s3_key": "uploads/<token>.jpg"}
@@ -20,6 +22,8 @@ POST JSON body, three actions:
   {"action": "check_upload", "s3_key": "uploads/<token>.jpg"}
       -> {"uploaded": true/false} (false on 404), via S3 HeadObject.
   {"action": "health"} -> {"ok": true, "model": "<model id>"}
+  {"action": "reset_demo"} -> {"ok": true, "rows": n}  (restores the seed
+      household; at most once per RESET_COOLDOWN_S per warm container)
 
 Response headers include Access-Control-Allow-Origin: * (demo); OPTIONS
 preflight is handled. Follows the _resp pattern of presign_lambda.py.
@@ -28,6 +32,7 @@ preflight is handled. Follows the _resp pattern of presign_lambda.py.
 import json
 import os
 import sys
+import time
 from decimal import Decimal
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +43,7 @@ import boto3  # noqa: E402
 from botocore.exceptions import ClientError  # noqa: E402
 
 import store  # noqa: E402  (hot-path business logic; DynamoDB via db.py)
+import tools  # noqa: E402  (the 7 tool implementations shared with server.py)
 from home_analyst import (  # noqa: E402
     NAMEPLATE_PROMPT,
     NAMEPLATE_SCHEMA,
@@ -52,7 +58,14 @@ from home_analyst import (  # noqa: E402
 MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 UPLOADS_BUCKET = os.environ["UPLOADS_BUCKET"]
-UPLOAD_PAGE_BASE = "https://d250h79d4lokny.cloudfront.net/upload.html"
+# Abuse limits for the public chat endpoint (API Gateway throttling is the
+# primary guard; these cap the cost of any single request).
+MAX_MESSAGE_CHARS = 500
+MAX_HISTORY_TURNS = 10
+RESET_COOLDOWN_S = 30
+_last_reset = 0.0
+# The PNG-chunk OCR fallback is for offline tests only; off unless enabled.
+ALLOW_SYNTHETIC_OCR = os.environ.get("ALLOW_SYNTHETIC_OCR") == "1"
 # Synthetic-demo fallback gate: the deterministic OCR fallback below ONLY fires
 # for keys whose name contains this marker (our own PIL-rendered demo tests).
 SYNTHETIC_KEY_MARKER = "synthetic"
@@ -193,145 +206,15 @@ reply, an English question an English reply.
 - Never mention tool names or internal implementation details to the user.
 """
 
-# --- server-side tool execution (import store directly, no HTTP hop) ----------
+# --- server-side tool execution: the same functions the MCP server exposes ----
 
 
 def _exec_tool(name, args):
-    args = args or {}
-    print(f"[chat] tool call: {name} args={json.dumps(args, default=str)[:300]}")
-    if name == "get_home_briefing":
-        b = store.get_briefing(args.get("time_range_days", 30))
-        return _jsonable(b or {"summary": "No briefing available.", "items": []})
-    if name == "get_appliance":
-        matches = store.find_appliances(args["name"])
-        if len(matches) != 1:
-            cands = [
-                {"appliance_id": a.get("appliance_id"), "label": store._label(a)}
-                for a in (matches or store.get_appliances())
-            ]
-            return {
-                "status": "needs_clarification",
-                "summary": f"'{args['name']}' matches {'several appliances' if matches else 'nothing'}. "
-                           "Which one did you mean?",
-                "candidates": cands,
-            }
-        appl = matches[0]
-        tasks = sorted(
-            store.get_tasks(appl["appliance_id"]),
-            key=lambda t: t.get("last_done") or "",
-            reverse=True,
-        )
-        warranty = store.warranty_status(appl)
-        alerts = [
-            {"kind": a.get("kind"), "title": a.get("title"),
-             "severity": a.get("severity"), "source_url": a.get("source_url")}
-            for a in store.get_alerts()
-            if a.get("appliance_id") == appl["appliance_id"] and not a.get("read")
-        ]
-        warr_txt = (
-            f"under warranty until {warranty['warranty_end']}"
-            if warranty["status"] == "active"
-            else ("warranty expired" if warranty["status"] == "expired" else "warranty unknown")
-        )
-        return _jsonable({
-            "summary": (
-                f"{store._label(appl)}: {warr_txt}, {store.device_age(appl)} old. "
-                f"{len(tasks)} maintenance tasks on file, {len(alerts)} open alerts."
-            ),
-            "appliance": {
-                "appliance_id": appl.get("appliance_id"),
-                "label": store._label(appl),
-                "category": appl.get("category"),
-                "brand": appl.get("brand"),
-                "model": appl.get("model"),
-                "room": appl.get("room"),
-                "install_date": appl.get("install_date"),
-                "device_age": store.device_age(appl),
-            },
-            "warranty": warranty,
-            "maintenance_history": [
-                {"task": t["task"], "last_done": t.get("last_done"),
-                 "next_due": t.get("next_due"), "urgency": t.get("urgency")}
-                for t in tasks
-            ],
-            "alerts": alerts,
-        })
-    if name == "add_appliance":
-        try:
-            res = store.add_appliance(
-                args["category"], args.get("brand"), args.get("model"),
-                args.get("room"), args.get("install_date"),
-            )
-        except ValueError as exc:
-            return {"status": "error", "summary": str(exc)}
-        appl = res["appliance"]
-        return _jsonable({
-            "summary": f"Added {store._label(appl)} with {len(res['tasks_created'])} scheduled maintenance tasks.",
-            "appliance_id": appl["appliance_id"],
-            "label": store._label(appl),
-            "warranty_end": appl.get("warranty_end"),
-            "tasks": [{"task": t["task"], "next_due": t["next_due"]} for t in res["tasks_created"]],
-        })
-    if name == "start_photo_onboarding":
-        tok = store.create_upload_token()
-        # REAL upload URL (CloudFront), not the example.com placeholder in src/server.py.
-        upload_url = f"{UPLOAD_PAGE_BASE}?token={tok['token']}"
-        return {
-            "summary": ("Photo onboarding started. The user can open the upload link on their "
-                        "phone, photograph the appliance nameplate, and I'll build the record automatically."),
-            "upload_url": upload_url,
-            "qr_text": upload_url,
-            "expires_in_seconds": tok["expires_in_seconds"],
-            "card_title": "Add an appliance",
-            "card_body": "Scan to photograph the nameplate. The link expires in 15 minutes.",
-        }
-    if name == "log_maintenance":
-        try:
-            res = store.log_maintenance(args["appliance"], args["task"], args["action"], args.get("date"))
-        except store.ApplianceLookupError as exc:
-            return {"status": "needs_clarification", "summary": str(exc), "candidates": exc.candidates}
-        except ValueError as exc:
-            return {"status": "error", "summary": str(exc)}
-        when = "completed" if res["action"] == "done" else "snoozed for 30 days"
-        return _jsonable({
-            "summary": f"Marked '{res['task']['task']}' as {when}. Next due {res['next_due']}.",
-            "next_due": res["next_due"], "action": res["action"], "task": res["task"]["task"],
-        })
-    if name == "get_reorder_options":
-        res = store.get_reorder_options(args["appliance_or_consumable"])
-        if not res["options"]:
-            return {"status": "not_found",
-                    "summary": f"I couldn't find a consumable matching '{args['appliance_or_consumable']}'. "
-                               "Try naming the appliance, like 'fridge filter' or 'smoke alarm battery'."}
-        first = res["options"][0]
-        return _jsonable({
-            "summary": (f"Found {len(res['options'])} option(s). Top pick: {first['consumable']} "
-                        f"({first['spec']}). I've marked the related reminder as handled."),
-            "options": res["options"],
-        })
-    if name == "report_issue":
-        try:
-            rep = store.get_issue_report(args["appliance"], args["symptom"])
-        except store.ApplianceLookupError as exc:
-            return {"status": "needs_clarification", "summary": str(exc), "candidates": exc.candidates}
-        w = rep["warranty"]
-        warr_txt = (
-            f"under warranty until {w['warranty_end']}"
-            if w["status"] == "active"
-            else ("warranty expired" if w["status"] == "expired" else "warranty unknown")
-        )
-        tri = rep["triage"]
-        tri_txt = (f"Catalog guidance for '{tri['symptom']}': {tri['note']}" if tri
-                   else "No direct catalog match for this symptom.")
-        return _jsonable({
-            "summary": f"{rep['label']}: {warr_txt}, {rep['device_age']} old. {tri_txt}",
-            "appliance": {k: rep["appliance"].get(k) for k in
-                           ("appliance_id", "category", "brand", "model", "room", "install_date")},
-            "label": rep["label"], "device_age": rep["device_age"], "warranty": w,
-            "last_maintenance": rep["last_maintenance"], "open_tasks": rep["open_tasks"],
-            "alerts": rep["alerts"], "triage": tri, "symptom": rep["symptom"],
-        })
-    raise ValueError(f"unknown tool: {name}")
+    print(f"[chat] tool call: {name} args={json.dumps(args or {}, default=str)[:300]}")
+    fn = tools.BY_NAME.get(name)
+    if fn is None:
+        raise ValueError(f"unknown tool: {name}")
+    return _jsonable(fn(**(args or {})))
 
 
 def _chat(message, history):
@@ -477,7 +360,11 @@ def _extract_nameplate(s3_key: str) -> tuple:
         status = 200
     except Exception as exc:  # noqa: BLE001 - bedrock failure -> gated fallback
         print(f"[ocr] bedrock vision failed ({type(exc).__name__}): {exc}")
-        fb = _synthetic_fallback(image_bytes) if SYNTHETIC_KEY_MARKER in s3_key else None
+        fb = (
+            _synthetic_fallback(image_bytes)
+            if ALLOW_SYNTHETIC_OCR and SYNTHETIC_KEY_MARKER in s3_key
+            else None
+        )
         if fb is None:
             return 502, {"error": "bedrock_unavailable", "detail": str(exc)}
         fields, status = fb, 200
@@ -507,6 +394,7 @@ def _check_upload(s3_key: str) -> dict:
 # --- handler ----------------------------------------------------------------------
 
 def handler(event, context):
+    global _last_reset
     if (event.get("requestContext", {}).get("http", {}).get("method") == "OPTIONS"
             or event.get("httpMethod") == "OPTIONS"):
         return _resp(200, {"ok": True})
@@ -529,7 +417,10 @@ def handler(event, context):
             message = (payload.get("message") or "").strip()
             if not message:
                 return _resp(400, {"error": "missing message"})
-            reply, tool_calls = _chat(message, payload.get("history") or [])
+            if len(message) > MAX_MESSAGE_CHARS:
+                return _resp(400, {"error": f"message over {MAX_MESSAGE_CHARS} chars"})
+            history = (payload.get("history") or [])[-MAX_HISTORY_TURNS:]
+            reply, tool_calls = _chat(message, history)
             return _resp(200, {"reply": reply, "tool_calls": tool_calls})
         if action == "extract_nameplate":
             s3_key = (payload.get("s3_key") or "").strip()
@@ -537,6 +428,11 @@ def handler(event, context):
                 return _resp(400, {"error": "missing s3_key"})
             status, fields = _extract_nameplate(s3_key)
             return _resp(status, fields)
+        if action == "reset_demo":
+            if time.time() - _last_reset < RESET_COOLDOWN_S:
+                return _resp(429, {"error": "reset_cooldown"})
+            _last_reset = time.time()
+            return _resp(200, {"ok": True, "rows": store.reset_demo()})
         if action == "check_upload":
             s3_key = (payload.get("s3_key") or "").strip()
             if not s3_key:

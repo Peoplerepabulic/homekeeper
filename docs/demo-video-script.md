@@ -3,6 +3,8 @@
 Live demo URL: https://d250h79d4lokny.cloudfront.net/
 On-screen label: "Simulated Alexa+ experience · Real MCP backend on AWS"
 Warm up the Lambda once before recording (cold start ~2s, warm 13–76ms).
+Keep the "live safety recall" line only once src/demo_recall.json holds a real
+CPSC record (deploy/find_demo_recall.py). Click **Reset** before each take.
 
 ## 0:00–0:30 — The problem
 "Your home is full of things you're supposed to remember and don't. The HVAC filter
@@ -28,8 +30,8 @@ right on the screen."
 
 One MCP call — get_home_briefing — and there's the whole household: an overdue
 filter change, two tasks due soon, a warranty expiring in 20 days, and a live
-safety recall pulled from the CPSC feed every morning at 6 AM. 365 milliseconds,
-straight from DynamoDB — no LLM, no guessing. Tap any row and get_appliance shows
+safety recall pulled from the CPSC feed every morning at 6 AM. Read the latency
+off the card — well under half a second, straight from DynamoDB — no LLM, no guessing. Tap any row and get_appliance shows
 brand, model, warranty, full maintenance history."
 
 ## 1:30–2:00 — Flow 2: Issue triage
@@ -52,9 +54,9 @@ writes it to DynamoDB for real. A thirty-second task that used to mean digging
 through a filing cabinet."
 
 ## 2:40–2:55 — Free ask
-"And for anything else, just ask. 'When does the water heater warranty expire?'
-Bedrock calls the same MCP tools, asks which water heater I mean, and answers
-from the real warranty record — never invented."
+"And for anything else, just ask. 'When does the fridge warranty expire?'
+Bedrock calls the same tools the MCP server exposes, asks which of my two
+fridges I mean, and answers from the real warranty record — never invented."
 
 ## 2:55–3:00 — Close
 "HomeKeeper: a hot path under 500 milliseconds with zero LLM cost, and Bedrock

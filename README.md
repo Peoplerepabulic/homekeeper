@@ -35,11 +35,13 @@ The core decision is a **hot path / cold path split**:
   Lambda (FastMCP, stateless) → DynamoDB single table. **No LLM on this path.**
   Warm latency 13–76 ms; target < 500 ms.
 - **Cold path** (async): EventBridge daily 6:00 AM CT trigger → Lambda pulls the
-  live CPSC recall feed → results cached in DynamoDB for the next briefing.
-  Bedrock Claude handles free-ask chat (with MCP tool use) and nameplate vision.
+  live CPSC recall feed and writes matching recalls as `ALERT#` rows.
+  Bedrock Claude handles free-ask chat and nameplate vision.
 
-All intelligence is either pre-computed (daily scan) or kept off the latency-critical
-path (chat/vision). The hot path only reads facts that are already there.
+The briefing is computed live on every call from a single DynamoDB query of the
+household partition, so a logged repair or a newly added appliance shows up
+immediately. Anything that needs a network fetch or a model call happens off
+the request path.
 
 ## Design decisions
 
@@ -62,7 +64,7 @@ path (chat/vision). The hot path only reads facts that are already there.
 | `add_appliance` | Writes a new appliance from vision-extracted nameplate data |
 | `start_photo_onboarding` | Mints a one-time token + QR for phone photo upload |
 | `log_maintenance` | Records a completed maintenance task |
-| `get_reorder_options` | Consumable reorder options with Amazon links |
+| `get_reorder_options` | Consumable options with Amazon links; marks the matching reminder "replacement ordered" |
 | `report_issue` | Issue triage: warranty check + knowledge-base note + recommendation |
 
 ## Demo flows
@@ -75,8 +77,8 @@ path (chat/vision). The hot path only reads facts that are already there.
    vision extracts brand/model/serial/manufacture-date with confidence scores →
    pick a category → `add_appliance` writes it to DynamoDB. Verified end-to-end
    with a real Sharp microwave nameplate (R-209KK, all fields ≥0.95 confidence).
-4. **Free ask** — Bedrock Claude calls the same MCP tools; answers from real records,
-   never invented.
+4. **Free ask** — Bedrock Claude runs a tool loop over the same tool functions the
+   MCP server registers (`src/tools.py`), so answers come from real records.
 
 ## AWS services
 
@@ -99,18 +101,26 @@ path (chat/vision). The hot path only reads facts that are already there.
 pip install -r requirements.txt
 python src/server.py          # serves MCP streamable HTTP on :8000
 
+# pick a REAL CPSC recall for the demo fridge (writes src/demo_recall.json)
+python deploy/find_demo_recall.py --search refrigerator
+python deploy/find_demo_recall.py --pick <RecallID> --brand "<Brand>" --model "<Model>"
+
 # seed the demo household (dates relative to DEMO_CLOCK=2026-10-04)
 python src/seed.py --dry-run  # preview without writing
-python src/seed.py            # write to DynamoDB (AWS_PROFILE=alexa-ai-user)
+python src/seed.py            # replace the household in DynamoDB (AWS_PROFILE=alexa-ai-user)
 ```
 
 Deploy notes (Lambda zips, API Gateway routes, EventBridge schedule):
 [`deploy/README.md`](deploy/README.md)
 
+Throttling, budget alarm, nightly demo reset and keep-warm:
+[`deploy/HARDENING.md`](deploy/HARDENING.md). The simulator's **Reset** link
+restores the demo household for the next viewer.
+
 ## Project layout
 
 ```
-src/        # MCP server, store, db, seed, catalog, scheduling
+src/        # MCP server, tools (shared with chat), store, db, seed, catalog, scheduling
 web/        # Echo Show simulator (index.html), upload page, privacy/terms
 deploy/     # Lambda handlers (mcp, chat, presign, daily-scan) + deploy docs
 docs/       # demo video script (pitch), product feedback, design notes

@@ -8,7 +8,6 @@ Key layout (pk = "USER#<id>"):
     APPL#<applianceId>       device record                       (both)
     TASK#<applianceId>#<tid> maintenance schedule                (both)
     ALERT#<alertId>          recall / anomaly alerts             (cold path)
-    BRIEFING#latest          pre-computed daily briefing         (hot path)
     EVENT#<timestamp>        operation log (cross-session memory)(hot path)
     UPLOAD#<token>           one-time photo-upload token (TTL)   (hot path)
 """
@@ -64,10 +63,6 @@ def sk_alert(alert_id: str) -> str:
     return f"ALERT#{alert_id}"
 
 
-def sk_briefing() -> str:
-    return "BRIEFING#latest"
-
-
 def sk_event(ts: str) -> str:
     return f"EVENT#{ts}"
 
@@ -93,10 +88,38 @@ def get_item(sort_key: str, user_id: str = DEMO_USER_ID) -> dict | None:
 
 
 def query_prefix(sk_prefix: str, user_id: str = DEMO_USER_ID) -> list[dict]:
-    """Query all items whose sort key starts with sk_prefix."""
+    """Query all items whose sort key starts with sk_prefix (paginated)."""
     from boto3.dynamodb.conditions import Key
 
-    resp = _table_resource().query(
-        KeyConditionExpression=Key("pk").eq(pk(user_id)) & Key("sk").begins_with(sk_prefix)
-    )
-    return resp.get("Items", [])
+    cond = Key("pk").eq(pk(user_id)) & Key("sk").begins_with(sk_prefix)
+    return _paginate(cond)
+
+
+def query_all(user_id: str = DEMO_USER_ID) -> list[dict]:
+    """Every item in one household partition: one round trip for a small home."""
+    from boto3.dynamodb.conditions import Key
+
+    return _paginate(Key("pk").eq(pk(user_id)))
+
+
+def _paginate(cond) -> list[dict]:
+    items, kwargs = [], {"KeyConditionExpression": cond}
+    while True:
+        resp = _table_resource().query(**kwargs)
+        items.extend(resp.get("Items", []))
+        if "LastEvaluatedKey" not in resp:
+            return items
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+
+
+def replace_partition(items: list[dict], user_id: str = DEMO_USER_ID) -> int:
+    """Delete every item under USER#<user_id>, then write `items` (each has "sk")."""
+    table = _table_resource()
+    existing = query_all(user_id)
+    with table.batch_writer() as batch:
+        for it in existing:
+            batch.delete_item(Key={"pk": it["pk"], "sk": it["sk"]})
+    with table.batch_writer() as batch:
+        for it in items:
+            batch.put_item(Item={"pk": pk(user_id), **it})
+    return len(items)

@@ -1,0 +1,10 @@
+{
+  "_note": "TEST FIXTURE ONLY - not a real recall. Production uses src/demo_recall.json from deploy/find_demo_recall.py.",
+  "recall_id": "TEST-0001",
+  "title": "Test fixture recall for Samsung RF28R7351SR",
+  "url": "https://example.test/recall/TEST-0001",
+  "recall_date": "2026-01-01",
+  "hazard": "Fire",
+  "brand": "Samsung",
+  "model": "RF28R7351SR"
+}
