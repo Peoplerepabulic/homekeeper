@@ -1,0 +1,26 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,30,&H00FFFFFF,&H000019FF,&H80000000,&H80000000,0,0,0,0,100,100,0,0,1,2,0,2,40,40,60,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:06.00,Default,,0,0,0,,Your home is full of things you're supposed to remember — and don't.
+Dialogue: 0,0:00:06.00,0:00:10.00,Default,,0,0,0,,HomeKeeper: every appliance remembered, every task on time.
+Dialogue: 0,0:00:10.00,0:00:14.00,Default,,0,0,0,,"Alexa, what needs attention at home today?"
+Dialogue: 0,0:00:14.00,0:00:22.00,Default,,0,0,0,,One MCP call — five items: overdue, due soon, expiring warranty, safety recall.
+Dialogue: 0,0:00:22.00,0:00:26.00,Default,,0,0,0,,"The water heater is making a strange noise."
+Dialogue: 0,0:00:26.00,0:00:33.00,Default,,0,0,0,,Warranty check, history, knowledge base — still in warranty.
+Dialogue: 0,0:00:33.00,0:00:40.00,Default,,0,0,0,,"Add a new appliance by photo." Scan the QR, photograph the nameplate.
+Dialogue: 0,0:00:50.00,0:00:57.00,Default,,0,0,0,,Bedrock vision extracts brand, model, serial — with confidence scores.
+Dialogue: 0,0:00:57.00,0:01:03.00,Default,,0,0,0,,"When does the water heater warranty expire?"
+Dialogue: 0,0:01:08.00,0:01:16.00,Default,,0,0,0,,Bedrock calls the same MCP tools — real records, never invented.
+Dialogue: 0,0:01:16.00,0:01:22.00,Default,,0,0,0,,Hot path under 500 ms. Bedrock judgment when it's needed.
+Dialogue: 0,0:01:22.00,0:01:26.00,Default,,0,0,0,,HomeKeeper — every appliance remembered, every task on time.

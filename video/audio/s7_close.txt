@@ -1,0 +1,1 @@
+HomeKeeper: a hot path under five hundred milliseconds with zero L L M cost, and Bedrock judgment when it's actually needed. Every appliance remembered, every task on time.

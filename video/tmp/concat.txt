@@ -1,0 +1,7 @@
+file '/home/hatch/workspace/goals/amazon-developer-hackathon/homekeeper/video/tmp/s1_problem.mp4'
+file '/home/hatch/workspace/goals/amazon-developer-hackathon/homekeeper/video/tmp/s2_whatitis.mp4'
+file '/home/hatch/workspace/goals/amazon-developer-hackathon/homekeeper/video/tmp/s3_briefing.mp4'
+file '/home/hatch/workspace/goals/amazon-developer-hackathon/homekeeper/video/tmp/s4_triage.mp4'
+file '/home/hatch/workspace/goals/amazon-developer-hackathon/homekeeper/video/tmp/s5_onboarding.mp4'
+file '/home/hatch/workspace/goals/amazon-developer-hackathon/homekeeper/video/tmp/s6_freeask.mp4'
+file '/home/hatch/workspace/goals/amazon-developer-hackathon/homekeeper/video/tmp/s7_close.mp4'
