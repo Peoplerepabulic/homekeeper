@@ -18,3 +18,4 @@ docker/dynamodb-data/
 # Build artifacts
 deploy/*.zip
 package/
+docs/video/
