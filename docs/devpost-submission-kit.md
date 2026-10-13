@@ -3,7 +3,7 @@
 Fill order: upload video to YouTube (Public) first, then paste the sections below.
 
 ## 1. Video
-- Upload `docs/video/homekeeper-demo-v1.mp4` to YouTube as **Public**
+- Upload `docs/video/homekeeper-demo-v3.mp4` to YouTube as **Public** (v3 = re-recorded on the live Galanz-seed backend with English voiceover; v1 shows the retired Samsung seed)
 - Suggested title: `HomeKeeper — Alexa+ Home Appliance Manager | Build, Ship, Shape Hackathon`
 - Suggested description:
   ```
@@ -42,8 +42,8 @@ handles free-ask chat with MCP tool use and nameplate vision extraction.
 start_photo_onboarding, log_maintenance, get_reorder_options, report_issue.
 
 **Demo flows (see video):**
-1. Morning Briefing — one MCP call, five items: overdue, due soon, expiring
-   warranty, safety recall.
+1. Morning Briefing — one MCP call, three items: overdue, expiring
+   warranty, safety recall (real Galanz #10885, pulled from the live CPSC feed).
 2. Issue Triage — "the water heater is making a strange noise" → warranty
    status, maintenance history, knowledge-base note, rule-based recommendation.
 3. Photo Onboarding — QR code → phone photographs the nameplate → Bedrock
